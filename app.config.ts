@@ -1,12 +1,15 @@
 import { ExpoConfig, ConfigContext } from "expo/config";
 
-const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
-const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID;
 const GOOGLE_ANDROID_CLIENT_ID =
-  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? "";
+  process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
 
-const ADMOB_ANDROID_APP_ID = process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID ?? "";
-const ADMOB_IOS_APP_ID = process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID ?? "";
+const APP_NAME = process.env.PACKAGE_NAME;
+const PACKAGE_NAME = process.env.PACKAGE_NAME;
+
+const ADMOB_ANDROID_APP_ID = process.env.EXPO_PUBLIC_ADMOB_ANDROID_APP_ID;
+const ADMOB_IOS_APP_ID = process.env.EXPO_PUBLIC_ADMOB_IOS_APP_ID;
 
 const IOS_URL_SCHEME = GOOGLE_IOS_CLIENT_ID
   ? `com.googleusercontent.apps.${GOOGLE_IOS_CLIENT_ID.split(".")[0]}`
@@ -14,7 +17,7 @@ const IOS_URL_SCHEME = GOOGLE_IOS_CLIENT_ID
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
-  name: "Cycle Diary",
+  name: APP_NAME,
   slug: "cycle-diary",
   version: "1.0.0",
   scheme: "cycle-diary",
@@ -74,7 +77,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   android: {
     softwareKeyboardLayoutMode: "pan",
-    package: "com.technoapps.periodtracker",
+    package: PACKAGE_NAME,
     adaptiveIcon: {
       foregroundImage: "./src/assets/icons/adaptive-foreground.png",
       backgroundColor: "#ec4899",
@@ -88,7 +91,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: "com.technoapps.periodtracker",
+    bundleIdentifier: PACKAGE_NAME,
   },
   extra: {
     eas: {
