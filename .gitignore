@@ -1,0 +1,27 @@
+node_modules/
+.expo/
+dist/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.yarn/
+.yarnrc.yml
+yarn-error.log
+
+# macOS
+.DS_Store
+
+# Env
+.env
+.env.*
+
+# Keep firebase config tracked
+!firebase.json
+!firestore.indexes.json
+!firestore.rules
+
+android/
