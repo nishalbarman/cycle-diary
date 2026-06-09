@@ -15,6 +15,7 @@ import { usePeriodStore } from "@/shared/store/periodStore";
 import { MoodType, PeriodLog } from "@/shared/types";
 import { parseDate } from "@/shared/utils/cycle";
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
+import AdNative from "@/shared/components/AdNative";
 
 const MOOD_META: Record<
   MoodType,
@@ -340,6 +341,7 @@ export default function MoodHistoryScreen() {
             </View>
           ))}
         </View>
+        <View className="items-center mb-4"><AdNative /></View>
       </ScrollView>
     </View>
   );

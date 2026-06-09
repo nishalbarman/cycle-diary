@@ -12,8 +12,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
+import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
 import { usePeriodStore } from "@/shared/store/periodStore";
-import { CrampSeverity, SymptomType } from "@/shared/types";
+import { CrampSeverity } from "@/shared/types";
 import { formatDate } from "@/shared/utils/cycle";
 
 const SEVERITY_OPTIONS: {
@@ -62,6 +63,7 @@ export default function LogCrampsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const addLog = usePeriodStore((s) => s.addLog);
+  const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [severity, setSeverity] = useState<CrampSeverity>("mild");
@@ -77,12 +79,12 @@ export default function LogCrampsScreen() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const dateStr = formatDate(selectedDate);
-    addLog({
+    await addLog({
       id: `${dateStr}-cramp-${Date.now()}`,
       date: dateStr,
-      symptoms: ["cramps" as SymptomType],
+      symptoms: [],
       isPeriod: false,
       cramps: {
         severity,
@@ -90,6 +92,7 @@ export default function LogCrampsScreen() {
         notes: notes.trim() || undefined,
       },
     });
+    actionAd.trackAction();
     router.back();
   };
 

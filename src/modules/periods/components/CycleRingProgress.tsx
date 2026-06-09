@@ -25,11 +25,12 @@ export default function CycleRingProgress({
   const dashOffset = circumference * (1 - clampedProgress);
   const center = size / 2;
 
-  const dots = Array.from({ length: 28 }, (_, i) => {
-    const angle = (i / 28) * 2 * Math.PI - Math.PI / 2;
+  const numDots = Math.max(totalDays, 1);
+  const dots = Array.from({ length: numDots }, (_, i) => {
+    const angle = (i / numDots) * 2 * Math.PI - Math.PI / 2;
     const cx = center + (radius + strokeWidth / 2 + 14) * Math.cos(angle);
     const cy = center + (radius + strokeWidth / 2 + 14) * Math.sin(angle);
-    const filled = i / 28 < clampedProgress;
+    const filled = i / numDots < clampedProgress;
     return { cx, cy, filled, key: i };
   });
 

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useAuthStore } from "@/shared/store/authStore";
 import { usePeriodStore } from "@/shared/store/periodStore";
+import AdNative from "@/shared/components/AdNative";
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
@@ -138,6 +139,7 @@ export default function ProfileScreen() {
             <Text className="font-lexend-semibold text-red-500">Sign Out</Text>
           </Pressable>
         </View>
+        <View className="items-center mb-4"><AdNative /></View>
       </ScrollView>
     </View>
   );

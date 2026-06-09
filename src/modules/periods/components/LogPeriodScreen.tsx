@@ -7,14 +7,21 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
+import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
 import { usePeriodStore } from "@/shared/store/periodStore";
 import { FlowLevel, MoodType, SymptomType } from "@/shared/types";
-import { formatDate } from "@/shared/utils/cycle";
+import {
+  formatDate,
+  isNewPeriodGroup,
+  computeCycleLengthStats,
+  buildPeriodGroups,
+} from "@/shared/utils/cycle";
 
 const FLOW_OPTIONS: { label: string; value: FlowLevel; color: string }[] = [
   { label: "Light", value: "light", color: "#f9a8d4" },
@@ -52,6 +59,7 @@ export default function LogPeriodScreen() {
   const addLog = usePeriodStore((s) => s.addLog);
   const settings = usePeriodStore((s) => s.settings);
   const updateSettings = usePeriodStore((s) => s.updateSettings);
+  const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isPeriod, setIsPeriod] = useState(true);
@@ -59,6 +67,7 @@ export default function LogPeriodScreen() {
   const [selectedSymptoms, setSelectedSymptoms] = useState<SymptomType[]>([]);
   const [mood, setMood] = useState<MoodType | undefined>();
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const toggleSymptom = (s: SymptomType) => {
     setSelectedSymptoms((prev) =>
@@ -66,29 +75,53 @@ export default function LogPeriodScreen() {
     );
   };
 
-  const handleSave = () => {
-    const dateStr = formatDate(selectedDate);
-    addLog({
-      id: `${dateStr}-${Date.now()}`,
-      date: dateStr,
-      flow,
-      symptoms: selectedSymptoms,
-      mood,
-      notes: notes.trim() || undefined,
-      isPeriod,
-    });
+  const handleSave = async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      const dateStr = formatDate(selectedDate);
+      await addLog({
+        id: `${dateStr}-${Date.now()}`,
+        date: dateStr,
+        flow,
+        symptoms: selectedSymptoms,
+        mood,
+        notes: notes.trim() || undefined,
+        isPeriod,
+      });
 
-    // Auto-set lastPeriodStart if it's the first period logged or earlier
-    if (isPeriod) {
-      if (
-        !settings.lastPeriodStart ||
-        dateStr < settings.lastPeriodStart
-      ) {
-        updateSettings({ lastPeriodStart: dateStr });
+      if (isPeriod) {
+        const updates: Record<string, any> = {};
+
+        const currentLogs = usePeriodStore.getState().logs;
+        const groups = buildPeriodGroups(currentLogs);
+        if (groups.length > 0) {
+          const lastGroup = groups[groups.length - 1];
+          if (lastGroup.start !== settings.lastPeriodStart) {
+            updates.lastPeriodStart = lastGroup.start;
+          }
+        } else if (!settings.lastPeriodStart) {
+          updates.lastPeriodStart = dateStr;
+        }
+
+        if (isNewPeriodGroup(dateStr, currentLogs)) {
+          const stats = computeCycleLengthStats(currentLogs);
+          if (stats.average > 0 && stats.average !== settings.cycleLength) {
+            updates.cycleLength = stats.average;
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await updateSettings(updates);
+        }
       }
-    }
 
-    router.back();
+      actionAd.trackAction();
+      router.back();
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert("Save Error", e?.message ?? "Could not save entry");
+    }
   };
 
   const adjustDay = (delta: number) => {
@@ -302,7 +335,12 @@ export default function LogPeriodScreen() {
             />
           </View>
 
-          <CustomButton title="Save Entry" onPress={handleSave} size="lg" />
+          <CustomButton
+            title={saving ? "Saving..." : "Save Entry"}
+            onPress={handleSave}
+            size="lg"
+            disabled={saving}
+          />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

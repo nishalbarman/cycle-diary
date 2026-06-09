@@ -12,51 +12,51 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { usePeriodStore } from "@/shared/store/periodStore";
-import { PeriodLog, SleepEntry, SleepQuality } from "@/shared/types";
+import { PeriodLog, CrampEntry, CrampSeverity } from "@/shared/types";
 import { parseDate } from "@/shared/utils/cycle";
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
 import AdNative from "@/shared/components/AdNative";
 
-const QUALITY_META: Record<
-  SleepQuality,
-  { label: string; emoji: string; color: string; bg: string; text: string }
+const SEVERITY_META: Record<
+  CrampSeverity,
+  { label: string; color: string; bg: string; text: string; icon: string }
 > = {
-  poor: {
-    label: "Poor",
-    emoji: "😩",
-    color: "#ef4444",
-    bg: "bg-rose-50",
-    text: "text-rose-700",
-  },
-  fair: {
-    label: "Fair",
-    emoji: "😕",
-    color: "#f97316",
-    bg: "bg-orange-50",
-    text: "text-orange-700",
-  },
-  good: {
-    label: "Good",
-    emoji: "😊",
+  none: {
+    label: "None",
     color: "#10b981",
     bg: "bg-emerald-50",
     text: "text-emerald-700",
+    icon: "checkmark-circle",
   },
-  excellent: {
-    label: "Excellent",
-    emoji: "🌟",
-    color: "#7c3aed",
-    bg: "bg-violet-50",
-    text: "text-violet-700",
+  mild: {
+    label: "Mild",
+    color: "#facc15",
+    bg: "bg-amber-50",
+    text: "text-amber-700",
+    icon: "pulse",
+  },
+  moderate: {
+    label: "Moderate",
+    color: "#f97316",
+    bg: "bg-orange-50",
+    text: "text-orange-700",
+    icon: "pulse",
+  },
+  severe: {
+    label: "Severe",
+    color: "#ef4444",
+    bg: "bg-rose-50",
+    text: "text-rose-700",
+    icon: "alert-circle",
   },
 };
 
-function formatHours(h: number) {
-  const whole = Math.floor(h);
-  const minutes = Math.round((h - whole) * 60);
-  if (minutes === 0) return `${whole}h`;
-  return `${whole}h ${minutes}m`;
-}
+const LOCATION_LABELS: Record<string, string> = {
+  lower_abdomen: "Lower Abdomen",
+  back: "Back",
+  thighs: "Thighs",
+  other: "Other",
+};
 
 function formatMonthLabel(date: Date): string {
   const now = new Date();
@@ -67,58 +67,44 @@ function formatMonthLabel(date: Date): string {
   });
 }
 
-export default function SleepHistoryScreen() {
+export default function CrampsHistoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const logs = usePeriodStore((s) => s.logs);
   const { refreshing, onRefresh } = usePullToRefresh();
 
-  const sleepEntries = useMemo(() => {
+  const crampEntries = useMemo(() => {
     return logs
-      .filter((l): l is PeriodLog & { sleep: SleepEntry } => Boolean(l.sleep))
+      .filter((l): l is PeriodLog & { cramps: CrampEntry } => Boolean(l.cramps))
       .sort((a, b) => b.date.localeCompare(a.date));
   }, [logs]);
 
   const stats = useMemo(() => {
-    if (sleepEntries.length === 0) return null;
-    const totalHours = sleepEntries.reduce((a, b) => a + b.sleep.hours, 0);
-    const avg = totalHours / sleepEntries.length;
-
-    const last7 = sleepEntries.filter((l) => {
-      const days =
-        (Date.now() - parseDate(l.date).getTime()) / (1000 * 60 * 60 * 24);
-      return days <= 7;
-    });
-    const avg7 =
-      last7.length > 0
-        ? last7.reduce((a, b) => a + b.sleep.hours, 0) / last7.length
-        : avg;
-
-    let best = sleepEntries[0];
-    let worst = sleepEntries[0];
-    for (const l of sleepEntries) {
-      if (l.sleep.hours > best.sleep.hours) best = l;
-      if (l.sleep.hours < worst.sleep.hours) worst = l;
+    if (crampEntries.length === 0) return null;
+    const severityCount: Record<CrampSeverity, number> = {
+      none: 0,
+      mild: 0,
+      moderate: 0,
+      severe: 0,
+    };
+    for (const l of crampEntries) {
+      severityCount[l.cramps.severity]++;
     }
-
-    const qualityMap = new Map<SleepQuality, number>();
-    for (const l of sleepEntries) {
-      qualityMap.set(
-        l.sleep.quality,
-        (qualityMap.get(l.sleep.quality) ?? 0) + 1,
-      );
-    }
-    const qualityDistribution = Array.from(qualityMap.entries())
-      .map(([q, c]) => ({ q, c }))
+    const severityDistribution = (Object.keys(severityCount) as CrampSeverity[])
+      .map((s) => ({ s, c: severityCount[s] }))
       .sort((a, b) => b.c - a.c);
 
-    return { avg, avg7, best, worst, qualityDistribution };
-  }, [sleepEntries]);
+    const moderateOrSevere = crampEntries.filter(
+      (l) => l.cramps.severity === "moderate" || l.cramps.severity === "severe",
+    ).length;
+
+    return { severityDistribution, moderateOrSevere };
+  }, [crampEntries]);
 
   const groupedByMonth = useMemo(() => {
     const groups: { monthKey: string; label: string; items: PeriodLog[] }[] =
       [];
-    for (const log of sleepEntries) {
+    for (const log of crampEntries) {
       const d = parseDate(log.date);
       const monthKey = `${d.getFullYear()}-${d.getMonth()}`;
       const last = groups[groups.length - 1];
@@ -133,9 +119,9 @@ export default function SleepHistoryScreen() {
       }
     }
     return groups;
-  }, [sleepEntries]);
+  }, [crampEntries]);
 
-  if (sleepEntries.length === 0) {
+  if (crampEntries.length === 0) {
     return (
       <View className="flex-1">
         <LinearGradient
@@ -155,17 +141,17 @@ export default function SleepHistoryScreen() {
               History
             </Text>
           </View>
-          <Text className="text-sm font-lexend text-pink-500 mt-2">Sleep</Text>
+          <Text className="text-sm font-lexend text-pink-500 mt-2">Cramps</Text>
         </View>
         <View className="px-5 mt-12 items-center">
-          <View className="w-20 h-20 rounded-full bg-indigo-100 items-center justify-center">
-            <Ionicons name="moon-outline" size={40} color="#6366f1" />
+          <View className="w-20 h-20 rounded-full bg-rose-100 items-center justify-center">
+            <Ionicons name="fitness-outline" size={40} color="#f43f5e" />
           </View>
           <Text className="text-gray-900 font-lexend-semibold mt-5 text-lg">
-            No sleep entries yet
+            No cramps entries yet
           </Text>
           <Text className="text-gray-400 font-lexend text-sm mt-2 text-center">
-            Log your sleep from the Home tab to start tracking rest patterns.
+            Log your cramps from the Home tab to start tracking pain patterns.
           </Text>
         </View>
       </View>
@@ -199,12 +185,12 @@ export default function SleepHistoryScreen() {
               <Ionicons name="chevron-back" size={24} color="#ec4899" />
             </Pressable>
           </View>
-          <Text className="text-sm font-lexend text-pink-500 mt-2">Sleep</Text>
+          <Text className="text-sm font-lexend text-pink-500 mt-2">Cramps</Text>
           <Text className="text-3xl font-lexend-bold text-gray-900 mt-1">
             History
           </Text>
           <Text className="text-sm font-lexend text-gray-500 mt-1">
-            {sleepEntries.length} entries
+            {crampEntries.length} entries
           </Text>
         </View>
 
@@ -213,67 +199,68 @@ export default function SleepHistoryScreen() {
             <View className="bg-white rounded-2xl p-5 shadow-sm mb-4">
               <View className="flex-row">
                 <View className="flex-1 items-center">
-                  <View className="w-11 h-11 rounded-2xl bg-indigo-100 items-center justify-center mb-2">
-                    <Ionicons name="moon" size={20} color="#6366f1" />
+                  <View className="w-11 h-11 rounded-2xl bg-rose-100 items-center justify-center mb-2">
+                    <Ionicons name="fitness" size={20} color="#f43f5e" />
                   </View>
                   <Text className="text-2xl font-lexend-bold text-gray-900">
-                    {formatHours(stats.avg)}
+                    {crampEntries.length}
                   </Text>
                   <Text className="text-[11px] font-lexend text-gray-400 mt-0.5">
-                    Avg Sleep
-                  </Text>
-                  <Text className="text-[10px] font-lexend text-gray-300 mt-0.5">
-                    all time
+                    Total Episodes
                   </Text>
                 </View>
                 <View className="w-px bg-gray-100" />
                 <View className="flex-1 items-center">
-                  <View className="w-11 h-11 rounded-2xl bg-cyan-100 items-center justify-center mb-2">
-                    <Ionicons name="calendar" size={20} color="#06b6d4" />
+                  <View className="w-11 h-11 rounded-2xl bg-orange-100 items-center justify-center mb-2">
+                    <Ionicons name="trending-up" size={20} color="#f97316" />
                   </View>
                   <Text className="text-2xl font-lexend-bold text-gray-900">
-                    {formatHours(stats.avg7)}
+                    {stats.moderateOrSevere}
                   </Text>
                   <Text className="text-[11px] font-lexend text-gray-400 mt-0.5">
-                    Last 7 Days
-                  </Text>
-                  <Text className="text-[10px] font-lexend text-gray-300 mt-0.5">
-                    recent
+                    Moderate/Severe
                   </Text>
                 </View>
                 <View className="w-px bg-gray-100" />
                 <View className="flex-1 items-center">
                   <View className="w-11 h-11 rounded-2xl bg-emerald-100 items-center justify-center mb-2">
-                    <Ionicons name="trending-up" size={20} color="#10b981" />
+                    <Ionicons name="calendar" size={20} color="#10b981" />
                   </View>
                   <Text className="text-2xl font-lexend-bold text-gray-900">
-                    {formatHours(stats.best.sleep.hours)}
+                    {Math.round(
+                      (1 -
+                        stats.severityDistribution.find((s) => s.s === "none")
+                          ?.c! / crampEntries.length) *
+                        100,
+                    )}
+                    %
                   </Text>
                   <Text className="text-[11px] font-lexend text-gray-400 mt-0.5">
-                    Best Night
-                  </Text>
-                  <Text className="text-[10px] font-lexend text-gray-300 mt-0.5">
-                    longest
+                    Reported
                   </Text>
                 </View>
               </View>
             </View>
           )}
 
-          {stats && stats.qualityDistribution.length > 0 && (
+          {stats && stats.severityDistribution.length > 0 && (
             <View className="bg-white rounded-2xl p-5 shadow-sm mb-4">
               <Text className="font-lexend-semibold text-gray-900 mb-3">
-                Quality Breakdown
+                Severity Breakdown
               </Text>
               <View className="gap-2">
-                {stats.qualityDistribution.map(({ q, c }) => {
-                  const meta = QUALITY_META[q];
-                  const pct = Math.round((c / sleepEntries.length) * 100);
+                {stats.severityDistribution.map(({ s, c }) => {
+                  const meta = SEVERITY_META[s];
+                  const pct = Math.round((c / crampEntries.length) * 100);
                   return (
-                    <View key={q} className="flex-row items-center">
-                      <Text className="text-xl mr-2 w-7 text-center">
-                        {meta.emoji}
-                      </Text>
+                    <View key={s} className="flex-row items-center">
+                      <View className="w-8 h-8 rounded-lg bg-gray-50 items-center justify-center mr-2">
+                        <Ionicons
+                          name={meta.icon as any}
+                          size={16}
+                          color={meta.color}
+                        />
+                      </View>
                       <View className="flex-1">
                         <View className="flex-row items-center justify-between mb-1">
                           <Text className="text-xs font-lexend-semibold text-gray-700">
@@ -307,8 +294,8 @@ export default function SleepHistoryScreen() {
               </Text>
               <View className="gap-2">
                 {group.items.map((log) => {
-                  if (!log.sleep) return null;
-                  const meta = QUALITY_META[log.sleep.quality];
+                  if (!log.cramps) return null;
+                  const meta = SEVERITY_META[log.cramps.severity];
                   const d = parseDate(log.date);
                   return (
                     <View
@@ -316,18 +303,24 @@ export default function SleepHistoryScreen() {
                       className="bg-white rounded-2xl p-4 shadow-sm flex-row items-center">
                       <View
                         className={`w-12 h-12 rounded-2xl ${meta.bg} items-center justify-center mr-3`}>
-                        <Text className="text-2xl">{meta.emoji}</Text>
+                        <Ionicons
+                          name={meta.icon as any}
+                          size={24}
+                          color={meta.color}
+                        />
                       </View>
                       <View className="flex-1">
                         <View className="flex-row items-center justify-between">
                           <Text className="font-lexend-semibold text-gray-900">
-                            {formatHours(log.sleep.hours)}
+                            {meta.label}
                           </Text>
-                          <View
-                            className={`px-2 py-0.5 rounded-full ${meta.bg}`}>
+                          <View className={`px-2 py-0.5 rounded-full ${meta.bg}`}>
                             <Text
                               className={`text-[10px] font-lexend-semibold ${meta.text}`}>
-                              {meta.label}
+                              {log.cramps.location
+                                ? LOCATION_LABELS[log.cramps.location] ??
+                                  log.cramps.location
+                                : "General"}
                             </Text>
                           </View>
                         </View>
@@ -339,11 +332,11 @@ export default function SleepHistoryScreen() {
                             year: "numeric",
                           })}
                         </Text>
-                        {log.sleep.notes && (
+                        {log.cramps.notes && (
                           <Text
                             className="text-xs font-lexend text-gray-600 mt-2 italic"
                             numberOfLines={3}>
-                            “{log.sleep.notes}”
+                            “{log.cramps.notes}”
                           </Text>
                         )}
                       </View>

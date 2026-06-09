@@ -15,6 +15,7 @@ import { usePeriodStore } from "@/shared/store/periodStore";
 import { CravingEntry, CravingType, PeriodLog } from "@/shared/types";
 import { parseDate } from "@/shared/utils/cycle";
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
+import AdNative from "@/shared/components/AdNative";
 
 const CRAVING_META: Record<
   CravingType,
@@ -374,6 +375,7 @@ export default function CravingsHistoryScreen() {
             </View>
           ))}
         </View>
+        <View className="items-center mb-4"><AdNative /></View>
       </ScrollView>
     </View>
   );

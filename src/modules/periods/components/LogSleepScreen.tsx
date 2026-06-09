@@ -12,8 +12,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
+import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
 import { usePeriodStore } from "@/shared/store/periodStore";
-import { SleepQuality, SymptomType } from "@/shared/types";
+import { SleepQuality } from "@/shared/types";
 import { formatDate } from "@/shared/utils/cycle";
 
 const QUALITY_OPTIONS: {
@@ -67,6 +68,7 @@ export default function LogSleepScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const addLog = usePeriodStore((s) => s.addLog);
+  const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [hours, setHours] = useState(7.5);
@@ -96,12 +98,12 @@ export default function LogSleepScreen() {
     return `${whole}h ${minutes}m`;
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const dateStr = formatDate(selectedDate);
-    addLog({
+    await addLog({
       id: `${dateStr}-sleep-${Date.now()}`,
       date: dateStr,
-      symptoms: ["insomnia" as SymptomType],
+      symptoms: [],
       isPeriod: false,
       sleep: {
         hours,
@@ -109,6 +111,7 @@ export default function LogSleepScreen() {
         notes: notes.trim() || undefined,
       },
     });
+    actionAd.trackAction();
     router.back();
   };
 

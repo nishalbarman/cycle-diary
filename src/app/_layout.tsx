@@ -113,6 +113,8 @@ export default function RootLayout() {
           <Stack.Screen name="cycle-details" />
           <Stack.Screen name="mood-history" />
           <Stack.Screen name="sleep-history" />
+          <Stack.Screen name="cramps-history" />
+          <Stack.Screen name="cycle-history" />
           <Stack.Screen name="cravings-history" />
           <Stack.Screen name="settings" options={{ presentation: "modal" }} />
         </Stack>

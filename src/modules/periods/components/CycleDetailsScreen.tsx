@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -6,19 +6,28 @@ import {
   ScrollView,
   StyleSheet,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { usePeriodStore } from "@/shared/store/periodStore";
-import { PeriodLog } from "@/shared/types";
+import { FlowLevel, PeriodLog } from "@/shared/types";
 import {
   parseDate,
   daysBetween,
   formatDate,
+  buildPeriodGroups,
 } from "@/shared/utils/cycle";
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
+import AdNative from "@/shared/components/AdNative";
+
+const FLOW_META: Record<FlowLevel, { label: string; color: string }> = {
+  light: { label: "Light", color: "#f9a8d4" },
+  medium: { label: "Medium", color: "#ec4899" },
+  heavy: { label: "Heavy", color: "#be185d" },
+};
 
 const SYMPTOM_META: Record<
   string,
@@ -48,22 +57,6 @@ const MOOD_EMOJI: Record<string, string> = {
   stressed: "😫",
 };
 
-const FLOW_META: Record<string, { label: string; color: string }> = {
-  light: { label: "Light", color: "#f9a8d4" },
-  medium: { label: "Medium", color: "#ec4899" },
-  heavy: { label: "Heavy", color: "#be185d" },
-};
-
-const CRAMP_SEVERITY_META: Record<
-  string,
-  { label: string; color: string; bg: string }
-> = {
-  none: { label: "No Cramps", color: "#10b981", bg: "bg-emerald-50" },
-  mild: { label: "Mild Cramps", color: "#facc15", bg: "bg-amber-50" },
-  moderate: { label: "Moderate Cramps", color: "#f97316", bg: "bg-orange-50" },
-  severe: { label: "Severe Cramps", color: "#ef4444", bg: "bg-rose-50" },
-};
-
 const CRAVING_TYPE_META: Record<string, { label: string; emoji: string }> = {
   sweet: { label: "Sweet", emoji: "🍬" },
   chocolate: { label: "Chocolate", emoji: "🍫" },
@@ -84,77 +77,40 @@ const SLEEP_QUALITY_META: Record<
   excellent: { label: "Excellent", emoji: "🌟", color: "#7c3aed" },
 };
 
-function buildRangeDays(start: Date, end: Date): Date[] {
-  const days: Date[] = [];
-  const cur = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-  const last = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-  while (cur.getTime() <= last.getTime()) {
-    days.push(new Date(cur));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return days;
-}
-
 export default function CycleDetailsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ start?: string }>();
   const logs = usePeriodStore((s) => s.logs);
+  const removeLog = usePeriodStore((s) => s.removeLog);
   const { refreshing, onRefresh } = usePullToRefresh();
 
   const cycle = useMemo(() => {
     if (!params.start) return null;
-    const start = parseDate(params.start);
-    if (Number.isNaN(start.getTime())) return null;
 
-    const periodLogs = logs
-      .filter((l) => l.isPeriod)
-      .sort((a, b) => a.date.localeCompare(b.date));
-
-    if (periodLogs.length === 0) return null;
-
-    const groups: { start: string; logs: PeriodLog[] }[] = [];
-    let current: PeriodLog[] = [periodLogs[0]];
-    for (let i = 1; i < periodLogs.length; i++) {
-      const diff = daysBetween(
-        parseDate(periodLogs[i - 1].date),
-        parseDate(periodLogs[i].date),
-      );
-      if (Math.abs(diff) > 1) {
-        groups.push({ start: current[current.length - 1].date, logs: current });
-        current = [periodLogs[i]];
-      } else {
-        current.push(periodLogs[i]);
-      }
-    }
-    if (current.length > 0) {
-      groups.push({ start: current[current.length - 1].date, logs: current });
-    }
-
+    const groups = buildPeriodGroups(logs);
     const idx = groups.findIndex((g) => g.start === params.start);
     if (idx === -1) return null;
+
     const currentGroup = groups[idx];
     const nextGroup = groups[idx + 1];
 
-    const periodStart = parseDate(
-      currentGroup.logs[currentGroup.logs.length - 1].date,
-    );
-    const periodEnd = parseDate(currentGroup.logs[0].date);
-    const periodLength = currentGroup.logs.length;
+    const periodStart = parseDate(currentGroup.start);
+    const periodEnd = parseDate(currentGroup.end);
+    const periodLength = currentGroup.periodLength;
 
-    const nextPeriodStart = nextGroup
-      ? parseDate(nextGroup.logs[nextGroup.logs.length - 1].date)
-      : null;
-    const cycleEndExclusive = nextPeriodStart ?? new Date();
-    const cycleEnd = new Date(cycleEndExclusive);
-    cycleEnd.setDate(cycleEnd.getDate() - 1);
-    const cycleLength = daysBetween(periodStart, cycleEnd) + 1;
+    const nextPeriodStart = nextGroup ? parseDate(nextGroup.start) : null;
+    const cycleLength = nextPeriodStart
+      ? daysBetween(periodStart, nextPeriodStart)
+      : 0;
 
     return {
       periodStart,
       periodEnd,
       cycleStart: periodStart,
-      cycleEnd,
+      cycleEnd: nextPeriodStart
+        ? new Date(nextPeriodStart.getTime() - 86400000)
+        : new Date(),
       cycleLength,
       periodLength,
       isOngoing: !nextGroup,
@@ -169,21 +125,6 @@ export default function CycleDetailsScreen() {
       .filter((l) => l.date >= startStr && l.date <= endStr)
       .sort((a, b) => a.date.localeCompare(b.date));
   }, [cycle, logs]);
-
-  const rangeDays = useMemo(() => {
-    if (!cycle) return [];
-    return buildRangeDays(cycle.cycleStart, cycle.cycleEnd);
-  }, [cycle]);
-
-  const logsByDate = useMemo(() => {
-    const map = new Map<string, PeriodLog[]>();
-    for (const l of cycleLogs) {
-      const arr = map.get(l.date) ?? [];
-      arr.push(l);
-      map.set(l.date, arr);
-    }
-    return map;
-  }, [cycleLogs]);
 
   const symptomFrequency = useMemo(() => {
     const map = new Map<string, number>();
@@ -246,6 +187,26 @@ export default function CycleDetailsScreen() {
     return { avgHours, count: sleepEntries.length, qualities };
   }, [cycleLogs]);
 
+  const handleDelete = useCallback(
+    (log: PeriodLog) => {
+      Alert.alert(
+        "Delete Entry",
+        `Delete entry for ${log.date}? This cannot be undone.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              await removeLog(log.id);
+            },
+          },
+        ],
+      );
+    },
+    [removeLog],
+  );
+
   if (!cycle) {
     return (
       <View className="flex-1 bg-gray-50">
@@ -295,7 +256,6 @@ export default function CycleDetailsScreen() {
   };
 
   const headerRange = formatDateRange(cycle.periodStart, cycle.periodEnd);
-  const cycleRange = formatDateRange(cycle.cycleStart, cycle.cycleEnd);
 
   return (
     <View className="flex-1">
@@ -397,6 +357,105 @@ export default function CycleDetailsScreen() {
               </View>
             </View>
           </View>
+
+          {/* Day-by-day entries */}
+          {cycleLogs.length > 0 && (
+            <View className="mb-4">
+              <Text className="text-xs font-lexend-semibold text-gray-400 uppercase mb-2 ml-1">
+                Daily Entries
+              </Text>
+              {cycleLogs.map((log) => (
+                <View
+                  key={log.id}
+                  className="bg-white rounded-2xl p-4 shadow-sm mb-2">
+                  <View className="flex-row items-center justify-between mb-2">
+                    <View className="flex-row items-center gap-2">
+                      {log.isPeriod && log.flow && (
+                        <View
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: FLOW_META[log.flow].color }}
+                        />
+                      )}
+                      <Text className="font-lexend-semibold text-gray-900">
+                        {parseDate(log.date).toLocaleDateString("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </Text>
+                      {log.isPeriod && log.flow && (
+                        <Text className="text-xs font-lexend text-gray-400">
+                          {FLOW_META[log.flow].label}
+                        </Text>
+                      )}
+                    </View>
+                    <View className="flex-row items-center gap-2">
+                      {log.mood && (
+                        <Text className="text-lg">{MOOD_EMOJI[log.mood] ?? "🙂"}</Text>
+                      )}
+                      <Pressable
+                        onPress={() => handleDelete(log)}
+                        className="w-8 h-8 rounded-full bg-red-50 items-center justify-center">
+                        <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                      </Pressable>
+                    </View>
+                  </View>
+                  {log.symptoms.length > 0 && (
+                    <View className="flex-row flex-wrap gap-1.5 mb-2">
+                      {log.symptoms.map((s) => {
+                        const meta = SYMPTOM_META[s];
+                        if (!meta) return null;
+                        return (
+                          <View
+                            key={s}
+                            className={`flex-row items-center pl-1.5 pr-2 py-0.5 rounded-full ${meta.bg}`}>
+                            <Ionicons name={meta.icon} size={12} color={meta.color} />
+                            <Text
+                              className="ml-1 text-[10px] font-lexend-semibold"
+                              style={{ color: meta.color }}>
+                              {meta.label}
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                  {log.cramps && (
+                    <View className="flex-row items-center gap-2 mb-1">
+                      <Ionicons name="fitness" size={14} color="#f43f5e" />
+                      <Text className="text-xs font-lexend text-rose-600 capitalize">
+                        Cramps: {log.cramps.severity}
+                        {log.cramps.location ? ` · ${log.cramps.location.replace("_", " ")}` : ""}
+                      </Text>
+                    </View>
+                  )}
+                  {log.sleep && (
+                    <View className="flex-row items-center gap-2 mb-1">
+                      <Ionicons name="moon" size={14} color="#6366f1" />
+                      <Text className="text-xs font-lexend text-indigo-600">
+                        Sleep: {log.sleep.hours}h
+                        {log.sleep.quality ? ` · ${SLEEP_QUALITY_META[log.sleep.quality]?.label ?? log.sleep.quality}` : ""}
+                      </Text>
+                    </View>
+                  )}
+                  {log.cravings && (
+                    <View className="flex-row items-center gap-2 mb-1">
+                      <Ionicons name="pizza" size={14} color="#10b981" />
+                      <Text className="text-xs font-lexend text-emerald-600">
+                        Craving: {CRAVING_TYPE_META[log.cravings.type]?.emoji ?? ""} {CRAVING_TYPE_META[log.cravings.type]?.label ?? log.cravings.type}
+                        {" · "}Intensity {log.cravings.intensity}/5
+                      </Text>
+                    </View>
+                  )}
+                  {log.notes && (
+                    <Text className="text-xs font-lexend text-gray-500 mt-1 ml-0.5" numberOfLines={2}>
+                      {log.notes}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
 
           {/* Sleep + Cravings mini cards */}
           {(sleepSummary || cravingSummary) && (
@@ -555,169 +614,8 @@ export default function CycleDetailsScreen() {
               </View>
             </View>
           )}
-
-          {/* Day-by-day timeline */}
-          <View className="bg-white rounded-2xl p-5 shadow-sm mb-6">
-            <View className="flex-row items-center justify-between mb-1">
-              <Text className="font-lexend-semibold text-gray-900">
-                Day by Day
-              </Text>
-              <Text className="text-xs font-lexend text-gray-400">
-                {cycleRange}
-              </Text>
-            </View>
-            <Text className="text-[11px] font-lexend text-gray-400 mb-4">
-              Every entry logged during this cycle.
-            </Text>
-            <View className="gap-3">
-              {rangeDays.map((day, i) => {
-                const dayStr = formatDate(day);
-                const dayLogs = logsByDate.get(dayStr) ?? [];
-                const isLast = i === rangeDays.length - 1;
-                const inPeriod = dayLogs.some((l) => l.isPeriod);
-                const periodLog = dayLogs.find((l) => l.isPeriod);
-                const crampLog = dayLogs.find((l) => l.cramps);
-                const cravingLog = dayLogs.find((l) => l.cravings);
-                const sleepLog = dayLogs.find((l) => l.sleep);
-                const moodLog = dayLogs.find((l) => l.mood);
-                const flowMeta = periodLog?.flow
-                  ? FLOW_META[periodLog.flow]
-                  : null;
-                const crampMeta = crampLog?.cramps
-                  ? CRAMP_SEVERITY_META[crampLog.cramps.severity]
-                  : null;
-                const cravingMeta = cravingLog?.cravings
-                  ? CRAVING_TYPE_META[cravingLog.cravings.type]
-                  : null;
-                const sleepMeta = sleepLog?.sleep
-                  ? SLEEP_QUALITY_META[sleepLog.sleep.quality]
-                  : null;
-                const dotColor = flowMeta?.color
-                  ? flowMeta.color
-                  : crampMeta?.color ?? "#e5e7eb";
-
-                return (
-                  <View key={dayStr} className="flex-row">
-                    <View className="items-center mr-3" style={{ width: 14 }}>
-                      <View
-                        className="w-3 h-3 rounded-full border-2"
-                        style={{
-                          backgroundColor: inPeriod ? dotColor : "transparent",
-                          borderColor: dotColor,
-                        }}
-                      />
-                      {!isLast && (
-                        <View className="w-px flex-1 bg-gray-200 mt-1" />
-                      )}
-                    </View>
-                    <View
-                      className={`flex-1 pb-3 ${dayLogs.length === 0 ? "opacity-50" : ""}`}>
-                      <View className="flex-row items-center justify-between">
-                        <Text className="font-lexend-semibold text-gray-900 text-sm">
-                          {day.toLocaleDateString("en-US", {
-                            weekday: "short",
-                            month: "short",
-                            day: "numeric",
-                          })}
-                        </Text>
-                        <View className="flex-row items-center gap-1.5">
-                          {flowMeta && (
-                            <View
-                              className="px-2 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor: `${flowMeta.color}33`,
-                              }}>
-                              <Text
-                                className="text-[10px] font-lexend-semibold"
-                                style={{ color: flowMeta.color }}>
-                                {flowMeta.label}
-                              </Text>
-                            </View>
-                          )}
-                          {crampMeta && crampLog?.cramps && (
-                            <View
-                              className={`px-2 py-0.5 rounded-full ${crampMeta.bg}`}>
-                              <Text
-                                className="text-[10px] font-lexend-semibold"
-                                style={{ color: crampMeta.color }}>
-                                {crampLog.cramps.severity === "none"
-                                  ? "No Cramps"
-                                  : `${crampLog.cramps.severity} cramps`}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-
-                      <View className="flex-row flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-                        {moodLog?.mood && (
-                          <Text className="text-xs font-lexend text-gray-600">
-                            {MOOD_EMOJI[moodLog.mood]} {moodLog.mood}
-                          </Text>
-                        )}
-                        {sleepMeta && sleepLog?.sleep && (
-                          <Text
-                            className="text-xs font-lexend"
-                            style={{ color: sleepMeta.color }}>
-                            {sleepMeta.emoji} {sleepLog.sleep.hours}h ·{" "}
-                            {sleepMeta.label}
-                          </Text>
-                        )}
-                        {cravingMeta && cravingLog?.cravings && (
-                          <Text className="text-xs font-lexend text-emerald-700">
-                            {cravingMeta.emoji} {cravingMeta.label} (
-                            {cravingLog.cravings.intensity}/5)
-                          </Text>
-                        )}
-                      </View>
-
-                      {dayLogs.some((l) => l.symptoms.length > 0) && (
-                        <View className="flex-row flex-wrap gap-1 mt-2">
-                          {Array.from(
-                            new Set(
-                              dayLogs.flatMap((l) => l.symptoms),
-                            ),
-                          ).map((s) => {
-                            const meta = SYMPTOM_META[s];
-                            if (!meta) return null;
-                            return (
-                              <View
-                                key={s}
-                                className={`${meta.bg} px-2 py-0.5 rounded-full`}>
-                                <Text
-                                  className="text-[10px] font-lexend-semibold"
-                                  style={{ color: meta.color }}>
-                                  {meta.label}
-                                </Text>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      )}
-
-                      {dayLogs.map((l) =>
-                        l.notes ? (
-                          <Text
-                            key={l.id}
-                            className="text-xs font-lexend text-gray-500 mt-1.5 italic"
-                            numberOfLines={3}>
-                            “{l.notes}”
-                          </Text>
-                        ) : null,
-                      )}
-
-                      {dayLogs.length === 0 && (
-                        <Text className="text-[11px] font-lexend text-gray-300 mt-1">
-                          No entries
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
         </View>
+        <View className="items-center mb-4"><AdNative /></View>
       </ScrollView>
     </View>
   );

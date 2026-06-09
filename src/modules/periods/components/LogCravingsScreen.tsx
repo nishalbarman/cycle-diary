@@ -12,8 +12,9 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
+import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
 import { usePeriodStore } from "@/shared/store/periodStore";
-import { CravingType, SymptomType } from "@/shared/types";
+import { CravingType } from "@/shared/types";
 import { formatDate } from "@/shared/utils/cycle";
 
 const CRAVING_TYPES: {
@@ -86,6 +87,7 @@ export default function LogCravingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const addLog = usePeriodStore((s) => s.addLog);
+  const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [type, setType] = useState<CravingType>("sweet");
@@ -99,12 +101,12 @@ export default function LogCravingsScreen() {
     );
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const dateStr = formatDate(selectedDate);
-    addLog({
+    await addLog({
       id: `${dateStr}-crave-${Date.now()}`,
       date: dateStr,
-      symptoms: ["cravings" as SymptomType],
+      symptoms: [],
       isPeriod: false,
       cravings: {
         type,
@@ -112,6 +114,7 @@ export default function LogCravingsScreen() {
         notes: notes.trim() || undefined,
       },
     });
+    actionAd.trackAction();
     router.back();
   };
 

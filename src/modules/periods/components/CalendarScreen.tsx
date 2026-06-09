@@ -18,6 +18,7 @@ import {
   parseDate,
   predictNextPeriod,
   getFertileWindow,
+  getPhase,
   daysBetween,
   addDays,
 } from "@/shared/utils/cycle";
@@ -27,18 +28,8 @@ import QuickLogGrid, {
   QuickLogItem,
 } from "@/modules/periods/components/QuickLogGrid";
 import StorageNoticeModal from "@/shared/components/StorageNoticeModal";
-import AdBanner from "@/shared/components/AdBanner";
+import AdNative from "@/shared/components/AdNative";
 import { useAdConfigStore } from "@/shared/store/adConfigStore";
-
-function getPhase(cycleDay: number, periodLength: number, cycleLength: number) {
-  if (cycleDay <= 0) return "New Cycle";
-  if (cycleDay <= periodLength) return "Period";
-  if (cycleDay <= periodLength + 5) return "Follicular";
-  if (cycleDay >= cycleLength - 16 && cycleDay <= cycleLength - 13)
-    return "Ovulation";
-  if (cycleDay > cycleLength - 14) return "Luteal";
-  return "Follicular";
-}
 
 export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
@@ -101,6 +92,9 @@ export default function CalendarScreen() {
   const daysUntilNext = predicted
     ? Math.max(0, daysBetween(today, predicted.start))
     : null;
+
+  const isOverdue = cycleDay > 0 && cycleDay > cycleLength;
+  const hasNoData = cycleDay === 0;
 
   const fertileWindow = useMemo(() => {
     if (!settings.lastPeriodStart) return null;
@@ -194,6 +188,38 @@ export default function CalendarScreen() {
           />
         </View>
 
+        {/* Overdue / no-data warning */}
+        {isOverdue && (
+          <View className="mx-5 mb-4 bg-rose-50 rounded-2xl p-4 flex-row items-center border border-rose-200">
+            <View className="w-10 h-10 rounded-xl bg-rose-100 items-center justify-center mr-3">
+              <Ionicons name="alert-circle" size={22} color="#e11d48" />
+            </View>
+            <View className="flex-1">
+              <Text className="font-lexend-semibold text-rose-800 text-sm">
+                Period is overdue
+              </Text>
+              <Text className="text-xs font-lexend text-rose-600 mt-0.5">
+                {cycleDay - cycleLength} day{cycleDay - cycleLength === 1 ? "" : "s"} past your expected cycle
+              </Text>
+            </View>
+          </View>
+        )}
+        {hasNoData && (
+          <View className="mx-5 mb-4 bg-purple-50 rounded-2xl p-4 flex-row items-center border border-purple-200">
+            <View className="w-10 h-10 rounded-xl bg-purple-100 items-center justify-center mr-3">
+              <Ionicons name="calendar" size={22} color="#7c3aed" />
+            </View>
+            <View className="flex-1">
+              <Text className="font-lexend-semibold text-purple-800 text-sm">
+                Start tracking your cycle
+              </Text>
+              <Text className="text-xs font-lexend text-purple-600 mt-0.5">
+                Log your first period to see predictions and insights
+              </Text>
+            </View>
+          </View>
+        )}
+
         {/* Info cards row */}
         <View className="px-5">
           <View className="flex-row gap-3">
@@ -281,10 +307,10 @@ export default function CalendarScreen() {
           </Pressable>
         </View>
 
-        {/* Banner ad */}
+        {/* Native ad */}
         {adsEnabled && (
           <View className="items-center mt-4 mb-2">
-            <AdBanner size="ANCHORED_ADAPTIVE_BANNER" />
+            <AdNative />
           </View>
         )}
       </ScrollView>

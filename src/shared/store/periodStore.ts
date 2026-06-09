@@ -1,6 +1,10 @@
 import { create } from "zustand";
 import { PeriodLog, UserSettings } from "@/shared/types";
 import {
+  buildPeriodGroups,
+  computeCycleLengthStats,
+} from "@/shared/utils/cycle";
+import {
   ensureReady,
   fetchAllLogs,
   fetchSettings,
@@ -71,8 +75,11 @@ export const usePeriodStore = create<PeriodState>()((set, get) => ({
     try {
       await insertLog(log);
     } catch (e: any) {
-      console.warn("[periodStore] addLog failed:", e?.message);
-      set({ error: e?.message ?? "Failed to save log" });
+      set((state) => ({
+        logs: state.logs.filter((l) => l.id !== log.id),
+        error: e?.message ?? "Failed to save log",
+      }));
+      throw e;
     }
   },
 
@@ -89,9 +96,32 @@ export const usePeriodStore = create<PeriodState>()((set, get) => ({
   },
 
   removeLog: async (id) => {
+    const prev = get().logs.find((l) => l.id === id);
     set((state) => ({ logs: state.logs.filter((l) => l.id !== id) }));
     try {
       await deleteLogDb(id);
+      if (prev?.isPeriod) {
+        const currentLogs = get().logs;
+        const groups = buildPeriodGroups(currentLogs);
+        const settingsUpdates: Partial<UserSettings> = {};
+        if (groups.length > 0) {
+          const lastGroup = groups[groups.length - 1];
+          if (lastGroup.start !== get().settings.lastPeriodStart) {
+            settingsUpdates.lastPeriodStart = lastGroup.start;
+          }
+        } else {
+          settingsUpdates.lastPeriodStart = null;
+        }
+        const stats = computeCycleLengthStats(currentLogs);
+        if (stats.average > 0 && stats.average !== get().settings.cycleLength) {
+          settingsUpdates.cycleLength = stats.average;
+        }
+        if (Object.keys(settingsUpdates).length > 0) {
+          const next = { ...get().settings, ...settingsUpdates };
+          set({ settings: next });
+          await upsertSettings(next);
+        }
+      }
     } catch (e: any) {
       console.warn("[periodStore] removeLog failed:", e?.message);
       set({ error: e?.message ?? "Failed to delete log" });
@@ -99,13 +129,14 @@ export const usePeriodStore = create<PeriodState>()((set, get) => ({
   },
 
   updateSettings: async (updates) => {
-    const next = { ...get().settings, ...updates };
+    const prev = get().settings;
+    const next = { ...prev, ...updates };
     set({ settings: next });
     try {
       await upsertSettings(next);
     } catch (e: any) {
-      console.warn("[periodStore] updateSettings failed:", e?.message);
-      set({ error: e?.message ?? "Failed to save settings" });
+      set({ settings: prev, error: e?.message ?? "Failed to save settings" });
+      throw e;
     }
   },
 

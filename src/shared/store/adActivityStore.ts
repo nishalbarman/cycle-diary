@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useAdConfigStore } from "./adConfigStore";
 
-export type ScreenKey = "home" | "calendar" | "history" | "profile" | "settings" | "ad_free_unlock";
+export type ScreenKey = "home" | "calendar" | "history" | "profile" | "settings" | "ad_free_unlock" | "action";
 
 export interface AdActivityState {
   lastAdShownTime: {
@@ -47,6 +47,7 @@ const initial: Omit<
       profile: null,
       settings: null,
       ad_free_unlock: null,
+      action: null,
     },
     rewarded: {
       home: null,
@@ -55,6 +56,7 @@ const initial: Omit<
       profile: null,
       settings: null,
       ad_free_unlock: null,
+      action: null,
     },
     appOpen: null,
   },
