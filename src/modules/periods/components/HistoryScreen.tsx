@@ -1,3 +1,4 @@
+// src/modules/periods/components/HistoryScreen.tsx
 import React, { useMemo } from "react";
 import {
   View,
@@ -9,7 +10,10 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppSelector } from "@/store/hooks";
+import { selectLogs } from "@/store/logSlice";
+import { selectSettings } from "@/store/settingsSlice";
+import { selectAdEnabled } from "@/store/adConfigSlice";
 import {
   predictNextPeriod,
   buildPeriodGroups,
@@ -18,7 +22,7 @@ import {
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
 import { HorizontalBarList } from "@/modules/periods/components/Charts";
 import AdNative from "@/shared/components/AdNative";
-import { useAdConfigStore } from "@/shared/store/adConfigStore";
+import theme from "@/shared/theme";
 
 const SYMPTOM_COLORS: Record<string, string> = {
   cramps: "#f43f5e",
@@ -37,22 +41,15 @@ const SYMPTOM_COLORS: Record<string, string> = {
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const logs = usePeriodStore((s) => s.logs);
-  const settings = usePeriodStore((s) => s.settings);
+  const logs = useAppSelector(selectLogs);
+  const settings = useAppSelector(selectSettings);
+  const adsEnabled = useAppSelector(selectAdEnabled);
   const { refreshing, onRefresh } = usePullToRefresh();
-  const adsEnabled = useAdConfigStore((s) => s.isEnabled);
 
   const periodGroups = useMemo(() => buildPeriodGroups(logs), [logs]);
   const completedCycles = useMemo(() => getCompletedCycles(logs), [logs]);
-  const periodLogsCount = useMemo(
-    () => logs.filter((l) => l.isPeriod).length,
-    [logs],
-  );
-
-  const predicted = useMemo(
-    () => predictNextPeriod(logs, settings),
-    [logs, settings],
-  );
+  const periodLogsCount = useMemo(() => logs.filter((l) => l.isPeriod).length, [logs]);
+  const predicted = useMemo(() => predictNextPeriod(logs, settings), [logs, settings]);
 
   const symptomFrequency = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -72,37 +69,24 @@ export default function HistoryScreen() {
 
   const totalSymptoms = symptomFrequency.reduce((a, b) => a + b.value, 0);
 
-  const activityCounts = useMemo(() => {
-    return {
-      mood: logs.filter((l) => l.mood).length,
-      sleep: logs.filter((l) => l.sleep).length,
-      cravings: logs.filter((l) => l.cravings).length,
-      cramps: logs.filter((l) => l.cramps).length,
-    };
-  }, [logs]);
+  const activityCounts = useMemo(() => ({
+    mood: logs.filter((l) => l.mood).length,
+    sleep: logs.filter((l) => l.sleep).length,
+    cravings: logs.filter((l) => l.cravings).length,
+    cramps: logs.filter((l) => l.cramps).length,
+  }), [logs]);
 
   return (
     <View className="flex-1 bg-gray-50">
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor="#ec4899"
-            colors={["#ec4899"]}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} colors={[theme.primary]} />
         }>
-        <View
-          className="bg-pink-500 px-6 pb-8"
-          style={{ paddingTop: insets.top + 16 }}>
+        <View className="px-6 pb-8" style={{ backgroundColor: theme.primary, paddingTop: insets.top + 16 }}>
           <View className="flex-row items-center justify-between">
-            <Text className="text-white text-2xl font-lexend-bold">
-              History
-            </Text>
-            <Pressable
-              onPress={() => router.push("/log")}
-              className="bg-white/20 rounded-full px-4 py-2 flex-row items-center">
+            <Text className="text-white text-2xl font-lexend-bold">History</Text>
+            <Pressable onPress={() => router.push("/log")} className="bg-white/20 rounded-full px-4 py-2 flex-row items-center">
               <Ionicons name="add" size={18} color="white" />
               <Text className="text-white font-lexend-semibold ml-1">Log</Text>
             </Pressable>
@@ -112,45 +96,22 @@ export default function HistoryScreen() {
         <View className="px-4 -mt-5">
           {/* Summary cards */}
           <View className="bg-white rounded-2xl p-5 shadow-sm mb-4">
-            <Text className="font-lexend-bold text-gray-900 mb-4">
-              Cycle Overview
-            </Text>
+            <Text className="font-lexend-bold text-gray-900 mb-4">Cycle Overview</Text>
             <View className="flex-row justify-between">
-              <View className="items-center flex-1">
-                <Text className="text-2xl font-lexend-bold text-gray-900">
-                  {completedCycles.length}
-                </Text>
-                <Text className="text-xs font-lexend text-gray-400 mt-1">
-                  Cycles
-                </Text>
-              </View>
-              <View className="w-px bg-gray-100" />
-              <View className="items-center flex-1">
-                <Text className="text-2xl font-lexend-bold text-gray-900">
-                  {periodLogsCount}
-                </Text>
-                <Text className="text-xs font-lexend text-gray-400 mt-1">
-                  Period Days
-                </Text>
-              </View>
-              <View className="w-px bg-gray-100" />
-              <View className="items-center flex-1">
-                <Text className="text-2xl font-lexend-bold text-gray-900">
-                  {settings.cycleLength}
-                </Text>
-                <Text className="text-xs font-lexend text-gray-400 mt-1">
-                  Avg Cycle
-                </Text>
-              </View>
-              <View className="w-px bg-gray-100" />
-              <View className="items-center flex-1">
-                <Text className="text-2xl font-lexend-bold text-gray-900">
-                  {logs.length}
-                </Text>
-                <Text className="text-xs font-lexend text-gray-400 mt-1">
-                  Total Logs
-                </Text>
-              </View>
+              {[
+                { label: "Cycles", value: completedCycles.length },
+                { label: "Period Days", value: periodLogsCount },
+                { label: "Avg Cycle", value: settings.cycleLength },
+                { label: "Total Logs", value: logs.length },
+              ].map((item, i, arr) => (
+                <React.Fragment key={item.label}>
+                  <View className="items-center flex-1">
+                    <Text className="text-2xl font-lexend-bold text-gray-900">{item.value}</Text>
+                    <Text className="text-xs font-lexend text-gray-400 mt-1">{item.label}</Text>
+                  </View>
+                  {i < arr.length - 1 && <View className="w-px bg-gray-100" />}
+                </React.Fragment>
+              ))}
             </View>
           </View>
 
@@ -161,15 +122,9 @@ export default function HistoryScreen() {
                 <Ionicons name="sparkles" size={20} color="#7c3aed" />
               </View>
               <View className="flex-1">
-                <Text className="font-lexend-semibold text-purple-900 text-sm">
-                  Next predicted period
-                </Text>
+                <Text className="font-lexend-semibold text-purple-900 text-sm">Next predicted period</Text>
                 <Text className="font-lexend text-purple-700 text-xs mt-0.5">
-                  {predicted.start.toLocaleDateString("en-US", {
-                    weekday: "long",
-                    month: "long",
-                    day: "numeric",
-                  })}
+                  {predicted.start.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
                 </Text>
               </View>
             </View>
@@ -179,12 +134,8 @@ export default function HistoryScreen() {
           {symptomFrequency.length > 0 && (
             <View className="bg-white rounded-2xl p-5 shadow-sm mb-4">
               <View className="flex-row items-center justify-between mb-4">
-                <Text className="font-lexend-bold text-gray-900">
-                  Symptom Summary
-                </Text>
-                <Text className="text-xs font-lexend text-gray-400">
-                  {totalSymptoms} total
-                </Text>
+                <Text className="font-lexend-bold text-gray-900">Symptom Summary</Text>
+                <Text className="text-xs font-lexend text-gray-400">{totalSymptoms} total</Text>
               </View>
               <HorizontalBarList items={symptomFrequency.slice(0, 8)} />
             </View>
@@ -196,12 +147,10 @@ export default function HistoryScreen() {
             className="bg-white rounded-2xl p-5 shadow-sm mb-4 active:bg-gray-50 flex-row items-center justify-between">
             <View className="flex-row items-center gap-3">
               <View className="w-11 h-11 rounded-2xl bg-pink-100 items-center justify-center">
-                <Ionicons name="calendar" size={22} color="#ec4899" />
+                <Ionicons name="calendar" size={22} color={theme.primary} />
               </View>
               <View>
-                <Text className="font-lexend-semibold text-gray-900">
-                  Cycle History
-                </Text>
+                <Text className="font-lexend-semibold text-gray-900">Cycle History</Text>
                 <Text className="text-xs font-lexend text-gray-400 mt-0.5">
                   {periodLogsCount > 0
                     ? `${periodGroups.length} period group${periodGroups.length === 1 ? "" : "s"}, ${periodLogsCount} day${periodLogsCount === 1 ? "" : "s"} logged`
@@ -214,67 +163,26 @@ export default function HistoryScreen() {
 
           {/* Activity History */}
           <View className="mt-4 mb-8">
-            <Text className="text-xs font-lexend-semibold text-gray-400 uppercase mb-3 ml-1">
-              Activity History
-            </Text>
+            <Text className="text-xs font-lexend-semibold text-gray-400 uppercase mb-3 ml-1">Activity History</Text>
             <View className="flex-row flex-wrap gap-3">
               {(
                 [
-                  {
-                    key: "mood",
-                    title: "Mood",
-                    count: activityCounts.mood,
-                    icon: "happy",
-                    bg: "bg-purple-100",
-                    color: "#7c3aed",
-                    href: "/mood-history",
-                  },
-                  {
-                    key: "sleep",
-                    title: "Sleep",
-                    count: activityCounts.sleep,
-                    icon: "moon",
-                    bg: "bg-indigo-100",
-                    color: "#6366f1",
-                    href: "/sleep-history",
-                  },
-                  {
-                    key: "cramps",
-                    title: "Cramps",
-                    count: activityCounts.cramps,
-                    icon: "fitness",
-                    bg: "bg-rose-100",
-                    color: "#f43f5e",
-                    href: "/cramps-history",
-                  },
-                  {
-                    key: "cravings",
-                    title: "Cravings",
-                    count: activityCounts.cravings,
-                    icon: "pizza",
-                    bg: "bg-emerald-100",
-                    color: "#10b981",
-                    href: "/cravings-history",
-                  },
+                  { key: "mood", title: "Mood", count: activityCounts.mood, icon: "happy", bg: "bg-purple-100", color: "#7c3aed", href: "/mood-history" },
+                  { key: "sleep", title: "Sleep", count: activityCounts.sleep, icon: "moon", bg: "bg-indigo-100", color: "#6366f1", href: "/sleep-history" },
+                  { key: "cramps", title: "Cramps", count: activityCounts.cramps, icon: "fitness", bg: "bg-rose-100", color: "#f43f5e", href: "/cramps-history" },
+                  { key: "cravings", title: "Cravings", count: activityCounts.cravings, icon: "pizza", bg: "bg-emerald-100", color: "#10b981", href: "/cravings-history" },
                 ] as const
               ).map((it) => (
                 <Pressable
                   key={it.key}
                   onPress={() => router.push(it.href as any)}
                   className="flex-1 min-w-[45%] basis-[45%] bg-white rounded-2xl p-4 shadow-sm active:bg-gray-50">
-                  <View
-                    className={`w-11 h-11 rounded-2xl ${it.bg} items-center justify-center mb-3`}>
+                  <View className={`w-11 h-11 rounded-2xl ${it.bg} items-center justify-center mb-3`}>
                     <Ionicons name={it.icon as any} size={20} color={it.color} />
                   </View>
                   <View className="flex-row items-center justify-between">
-                    <Text className="font-lexend-semibold text-gray-900">
-                      {it.title}
-                    </Text>
-                    <Ionicons
-                      name="chevron-forward"
-                      size={14}
-                      color="#9ca3af"
-                    />
+                    <Text className="font-lexend-semibold text-gray-900">{it.title}</Text>
+                    <Ionicons name="chevron-forward" size={14} color="#9ca3af" />
                   </View>
                   <Text className="text-[11px] font-lexend text-gray-400 mt-0.5">
                     {it.count} {it.count === 1 ? "entry" : "entries"}

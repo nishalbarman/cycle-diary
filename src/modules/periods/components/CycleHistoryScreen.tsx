@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppSelector } from "@/store/hooks";
+import { selectLogs } from "@/store/logSlice";
 import { FlowLevel } from "@/shared/types";
 import {
   parseDate,
@@ -19,7 +20,7 @@ import {
   buildPeriodGroups,
   getCompletedCycles,
 } from "@/shared/utils/cycle";
-import weekDay from "@/shared/utils/weekDays";
+import weekDays from "@/shared/utils/weekDays";
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
 
 const FLOW_META: Record<FlowLevel, { label: string; color: string }> = {
@@ -42,11 +43,16 @@ const SYMPTOM_COLORS: Record<string, string> = {
   insomnia: "#0ea5e9",
 };
 
-function SymptomBadge({ symptom }: { symptom: string }) {
-  const color = SYMPTOM_COLORS[symptom] ?? "#6b7280";
+function SymptomPill({
+  symptom,
+  color,
+}: {
+  symptom: string;
+  color: string;
+}) {
   return (
     <View
-      className="rounded-full px-2.5 py-1"
+      className="px-2.5 py-1 rounded-full border border-gray-100"
       style={{ backgroundColor: `${color}18` }}>
       <Text
         className="text-xs font-lexend capitalize"
@@ -60,7 +66,7 @@ function SymptomBadge({ symptom }: { symptom: string }) {
 export default function CycleHistoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const logs = usePeriodStore((s) => s.logs);
+  const logs = useAppSelector(selectLogs);
   const { refreshing, onRefresh } = usePullToRefresh();
 
   const groups = useMemo(() => buildPeriodGroups(logs), [logs]);
@@ -180,7 +186,7 @@ export default function CycleHistoryScreen() {
                         day: "numeric",
                       })}
                       {", "}
-                      {weekDay[endDate.getDay()]}, {endDate.getFullYear()}
+                      {weekDays[endDate.getDay()]}, {endDate.getFullYear()}
                     </Text>
                   </View>
                   <View className="flex-row items-center gap-2">
@@ -238,7 +244,7 @@ export default function CycleHistoryScreen() {
                 </View>
                 <View className="flex-row gap-1 flex-wrap">
                   {uniqueSymptoms.slice(0, 5).map((s) => (
-                    <SymptomBadge key={s} symptom={s} />
+                    <SymptomPill key={s} symptom={s} color={SYMPTOM_COLORS[s] ?? "#6b7280"} />
                   ))}
                   {uniqueSymptoms.length > 5 && (
                     <View className="rounded-full px-2.5 py-1">

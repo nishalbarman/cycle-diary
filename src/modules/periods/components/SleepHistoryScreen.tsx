@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppSelector } from "@/store/hooks";
+import { selectLogs } from "@/store/logSlice";
 import { PeriodLog, SleepEntry, SleepQuality } from "@/shared/types";
 import { parseDate } from "@/shared/utils/cycle";
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
@@ -70,7 +71,7 @@ function formatMonthLabel(date: Date): string {
 export default function SleepHistoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const logs = usePeriodStore((s) => s.logs);
+  const logs = useAppSelector(selectLogs);
   const { refreshing, onRefresh } = usePullToRefresh();
 
   const sleepEntries = useMemo(() => {
@@ -359,3 +360,4 @@ export default function SleepHistoryScreen() {
     </View>
   );
 }
+

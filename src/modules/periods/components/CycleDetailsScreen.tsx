@@ -12,7 +12,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { selectLogs, removeLog } from "@/store/logSlice";
 import { FlowLevel, PeriodLog } from "@/shared/types";
 import {
   parseDate,
@@ -81,8 +82,8 @@ export default function CycleDetailsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams<{ start?: string }>();
-  const logs = usePeriodStore((s) => s.logs);
-  const removeLog = usePeriodStore((s) => s.removeLog);
+  const logs = useAppSelector(selectLogs);
+  const dispatch = useAppDispatch();
   const { refreshing, onRefresh } = usePullToRefresh();
 
   const cycle = useMemo(() => {
@@ -198,13 +199,13 @@ export default function CycleDetailsScreen() {
             text: "Delete",
             style: "destructive",
             onPress: async () => {
-              await removeLog(log.id);
+              dispatch(removeLog(log.id));
             },
           },
         ],
       );
     },
-    [removeLog],
+    [dispatch],
   );
 
   if (!cycle) {

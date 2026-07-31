@@ -25,6 +25,7 @@ export const periodLogs = sqliteTable("period_logs", {
   cramps: text("cramps", { mode: "json" }).$type<CrampEntry | null>(),
   cravings: text("cravings", { mode: "json" }).$type<CravingEntry | null>(),
   sleep: text("sleep", { mode: "json" }).$type<SleepEntry | null>(),
+  water: integer("water").default(0),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 });
@@ -34,11 +35,19 @@ export const userSettings = sqliteTable("user_settings", {
   cycleLength: integer("cycle_length").notNull().default(28),
   periodLength: integer("period_length").notNull().default(5),
   lastPeriodStart: text("last_period_start"),
+  primaryGoal: text("primary_goal").default("track_period"),
   notificationsEnabled: integer("notifications_enabled", { mode: "boolean" })
     .notNull()
     .default(false),
   notifyBeforeDays: integer("notify_before_days").notNull().default(2),
   notifyTime: text("notify_time").notNull().default("09:00"),
+  ovulationReminderEnabled: integer("ovulation_reminder_enabled", { mode: "boolean" })
+    .notNull()
+    .default(true),
+  pillReminderEnabled: integer("pill_reminder_enabled", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  pillNotifyTime: text("pill_notify_time").notNull().default("20:00"),
   symptomTracking: integer("symptom_tracking", { mode: "boolean" })
     .notNull()
     .default(true),

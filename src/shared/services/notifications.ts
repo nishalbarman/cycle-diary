@@ -1,9 +1,11 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { UserSettings, PeriodLog } from "@/shared/types";
-import { predictNextPeriod, parseDate } from "@/shared/utils/cycle";
+import { predictNextPeriod, parseDate, addDays } from "@/shared/utils/cycle";
 
 const PREDICTION_IDENTIFIER = "period-prediction";
+const OVULATION_IDENTIFIER = "ovulation-prediction";
+const PILL_IDENTIFIER = "pill-reminder";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -78,13 +80,71 @@ export async function schedulePeriodPrediction(
   return identifier;
 }
 
+export async function scheduleOvulationReminder(
+  settings: UserSettings,
+): Promise<string | null> {
+  if (!settings.notificationsEnabled || !settings.ovulationReminderEnabled || !settings.lastPeriodStart) {
+    return null;
+  }
+
+  const cycleLength = settings.cycleLength || 28;
+  const ovulationDay = addDays(parseDate(settings.lastPeriodStart), cycleLength - 14);
+  const triggerDate = new Date(ovulationDay);
+  triggerDate.setDate(triggerDate.getDate() - 1); // 1 day before ovulation
+
+  const [h, m] = settings.notifyTime.split(":").map((n) => parseInt(n, 10));
+  triggerDate.setHours(h, m, 0, 0);
+  if (triggerDate.getTime() <= Date.now()) return null;
+
+  const identifier = await Notifications.scheduleNotificationAsync({
+    identifier: OVULATION_IDENTIFIER,
+    content: {
+      title: "Fertile Window Active 🌿",
+      body: "Your estimated ovulation day is tomorrow.",
+      data: { type: "ovulation-reminder" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: triggerDate,
+    },
+  });
+
+  return identifier;
+}
+
+export async function schedulePillReminder(
+  settings: UserSettings,
+): Promise<string | null> {
+  if (!settings.pillReminderEnabled) return null;
+
+  const [h, m] = settings.pillNotifyTime.split(":").map((n) => parseInt(n, 10));
+
+  const identifier = await Notifications.scheduleNotificationAsync({
+    identifier: PILL_IDENTIFIER,
+    content: {
+      title: "Daily Pill Reminder 💊",
+      body: "Time to take your daily pill/supplement.",
+      data: { type: "pill-reminder" },
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour: h,
+      minute: m,
+    },
+  });
+
+  return identifier;
+}
+
 export async function rescheduleAll(
   logs: PeriodLog[],
   settings: UserSettings,
 ): Promise<void> {
   await cancelAllScheduled();
-  if (!settings.notificationsEnabled) return;
+  if (!settings.notificationsEnabled && !settings.pillReminderEnabled) return;
   const granted = await requestNotificationPermissions();
   if (!granted) return;
   await schedulePeriodPrediction(logs, settings);
+  await scheduleOvulationReminder(settings);
+  await schedulePillReminder(settings);
 }

@@ -14,15 +14,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import CustomButton from "@/shared/components/CustomButton";
 import GoogleSignInButton from "@/modules/auth/components/GoogleSignInButton";
-import { useAuthStore } from "@/shared/store/authStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { signIn, signInGoogle, selectAuthIsLoading } from "@/store/authSlice";
 import { isGoogleSignInConfigured } from "@/shared/services/firebase";
 
 export default function SignInScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const signIn = useAuthStore((s) => s.signIn);
-  const signInGoogle = useAuthStore((s) => s.signInGoogle);
-  const isLoading = useAuthStore((s) => s.isLoading);
+  const dispatch = useAppDispatch();
+  const isLoading = useAppSelector(selectAuthIsLoading);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -36,7 +36,8 @@ export default function SignInScreen() {
     }
     setBusy(true);
     try {
-      await signIn(email.trim(), password);
+      const result = await dispatch(signIn({ email: email.trim(), password }));
+      if (signIn.rejected.match(result)) throw new Error(result.payload as string);
     } catch (e: any) {
       Alert.alert("Sign in failed", e?.message ?? "Please try again.");
     } finally {
@@ -47,7 +48,8 @@ export default function SignInScreen() {
   const handleGoogleSignIn = async () => {
     setGoogleBusy(true);
     try {
-      await signInGoogle();
+      const result = await dispatch(signInGoogle());
+      if (signInGoogle.rejected.match(result)) throw new Error(result.payload as string);
     } catch (e: any) {
       Alert.alert("Google sign in failed", e?.message ?? "Please try again.");
     } finally {

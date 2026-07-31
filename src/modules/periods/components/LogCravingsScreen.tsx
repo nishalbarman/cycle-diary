@@ -7,13 +7,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
 import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppDispatch } from "@/store/hooks";
+import { addLog } from "@/store/logSlice";
 import { CravingType } from "@/shared/types";
 import { formatDate } from "@/shared/utils/cycle";
 
@@ -86,13 +88,14 @@ const CRAVING_TYPES: {
 export default function LogCravingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const addLog = usePeriodStore((s) => s.addLog);
+  const dispatch = useAppDispatch();
   const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [type, setType] = useState<CravingType>("sweet");
   const [intensity, setIntensity] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const adjustDay = (delta: number) => {
     setSelectedDate(
@@ -102,20 +105,28 @@ export default function LogCravingsScreen() {
   };
 
   const handleSave = async () => {
-    const dateStr = formatDate(selectedDate);
-    await addLog({
-      id: `${dateStr}-crave-${Date.now()}`,
-      date: dateStr,
-      symptoms: [],
-      isPeriod: false,
-      cravings: {
-        type,
-        intensity,
-        notes: notes.trim() || undefined,
-      },
-    });
-    actionAd.trackAction();
-    router.back();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const dateStr = formatDate(selectedDate);
+      await dispatch(addLog({
+        id: `${dateStr}-crave-${Date.now()}`,
+        date: dateStr,
+        symptoms: [],
+        isPeriod: false,
+        cravings: {
+          type,
+          intensity,
+          notes: notes.trim() || undefined,
+        },
+      }));
+      actionAd.trackAction();
+      setSaving(false);
+      router.back();
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert("Save Error", e?.message ?? "Could not save entry");
+    }
   };
 
   return (
@@ -258,14 +269,17 @@ export default function LogCravingsScreen() {
           </View>
 
           <CustomButton
-            title="Save Entry"
+            title={saving ? "Saving..." : "Save Entry"}
             onPress={handleSave}
             size="lg"
             bgVariant="greenery"
             className="bg-emerald-500 active:bg-emerald-600"
+            disabled={saving}
           />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+

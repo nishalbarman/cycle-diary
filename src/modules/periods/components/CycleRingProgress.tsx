@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text } from "react-native";
 import Svg, { Circle, G } from "react-native-svg";
+import theme from "@/shared/theme";
 
 interface CycleRingProgressProps {
   size?: number;
@@ -42,7 +43,7 @@ export default function CycleRingProgress({
             cx={center}
             cy={center}
             r={radius}
-            stroke="#fce7f3"
+            stroke={theme.primaryLight}
             strokeWidth={strokeWidth}
             fill="none"
           />
@@ -50,7 +51,7 @@ export default function CycleRingProgress({
             cx={center}
             cy={center}
             r={radius}
-            stroke="#ec4899"
+            stroke={theme.primary}
             strokeWidth={strokeWidth}
             fill="none"
             strokeDasharray={circumference}
@@ -64,14 +65,14 @@ export default function CycleRingProgress({
               cx={d.cx}
               cy={d.cy}
               r={d.filled ? 2.5 : 1.5}
-              fill={d.filled ? "#ec4899" : "#fbcfe8"}
+              fill={d.filled ? theme.primary : theme.ringTrack}
               opacity={d.filled ? 0.9 : 0.6}
             />
           ))}
         </G>
       </Svg>
       <View className="absolute items-center justify-center">
-        <Text className="text-xs font-lexend-semibold text-pink-400 uppercase tracking-widest">
+        <Text className="text-xs font-lexend-semibold text-pink-500 uppercase tracking-widest">
           {phase}
         </Text>
         <Text className="text-6xl font-lexend-bold text-gray-900 mt-1">

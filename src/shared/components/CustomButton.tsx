@@ -1,5 +1,6 @@
 import React from "react";
-import { Text, Pressable, PressableProps, View } from "react-native";
+import { Text, Pressable, PressableProps } from "react-native";
+import theme from "@/shared/theme";
 
 interface CustomButtonProps extends PressableProps {
   title: string;
@@ -12,24 +13,6 @@ interface CustomButtonProps extends PressableProps {
     | "greenery";
   size?: "sm" | "md" | "lg";
 }
-
-const bgClasses: Record<string, string> = {
-  primary: "bg-pink-500 active:bg-pink-600",
-  secondary: "bg-purple-500 active:bg-purple-600",
-  outline: "bg-transparent border border-pink-500 active:bg-pink-50",
-  danger: "bg-red-500 active:bg-red-600",
-  purple: "bg-indigo-500 active:bg-indigo-600",
-  greenery: "bg-emerald-500 active:bg-emerald-600",
-};
-
-const textClasses: Record<string, string> = {
-  primary: "text-white",
-  secondary: "text-white",
-  outline: "text-pink-500",
-  danger: "text-white",
-  purple: "text-white",
-  greenery: "text-white",
-};
 
 const sizeClasses: Record<string, string> = {
   sm: "px-4 py-2 rounded-lg",
@@ -49,21 +32,45 @@ export default function CustomButton({
   size = "md",
   className,
   disabled,
+  style,
   ...props
 }: CustomButtonProps) {
+  let buttonStyle: any = {};
+  let textStyle: any = { color: "#ffffff" };
+
+  if (bgVariant === "primary") {
+    buttonStyle = { backgroundColor: theme.primary };
+    textStyle = { color: "#ffffff" };
+  } else if (bgVariant === "outline") {
+    buttonStyle = { backgroundColor: "transparent", borderWidth: 1, borderColor: theme.primary };
+    textStyle = { color: theme.primary };
+  } else if (bgVariant === "secondary") {
+    buttonStyle = { backgroundColor: "#8b5cf6" };
+    textStyle = { color: "#ffffff" };
+  } else if (bgVariant === "danger") {
+    buttonStyle = { backgroundColor: "#ef4444" };
+    textStyle = { color: "#ffffff" };
+  } else if (bgVariant === "purple") {
+    buttonStyle = { backgroundColor: "#6366f1" };
+    textStyle = { color: "#ffffff" };
+  } else if (bgVariant === "greenery") {
+    buttonStyle = { backgroundColor: "#10b981" };
+    textStyle = { color: "#ffffff" };
+  }
+
   return (
     <Pressable
+      style={[buttonStyle, style, disabled && { opacity: 0.5 }]}
       className={`
         items-center justify-center
-        ${bgClasses[bgVariant]}
         ${sizeClasses[size]}
-        ${disabled ? "opacity-50" : ""}
         ${className || ""}
       `}
       disabled={disabled}
       {...props}>
       <Text
-        className={`font-lexend-semibold ${textClasses[bgVariant]} ${textSizeClasses[size]}`}>
+        style={textStyle}
+        className={`font-lexend-semibold ${textSizeClasses[size]}`}>
         {title}
       </Text>
     </Pressable>

@@ -7,13 +7,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
 import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppDispatch } from "@/store/hooks";
+import { addLog } from "@/store/logSlice";
 import { SleepQuality } from "@/shared/types";
 import { formatDate } from "@/shared/utils/cycle";
 
@@ -67,13 +69,14 @@ const QUALITY_OPTIONS: {
 export default function LogSleepScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const addLog = usePeriodStore((s) => s.addLog);
+  const dispatch = useAppDispatch();
   const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [hours, setHours] = useState(7.5);
   const [quality, setQuality] = useState<SleepQuality>("good");
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const adjustDay = (delta: number) => {
     setSelectedDate(
@@ -99,20 +102,28 @@ export default function LogSleepScreen() {
   };
 
   const handleSave = async () => {
-    const dateStr = formatDate(selectedDate);
-    await addLog({
-      id: `${dateStr}-sleep-${Date.now()}`,
-      date: dateStr,
-      symptoms: [],
-      isPeriod: false,
-      sleep: {
-        hours,
-        quality,
-        notes: notes.trim() || undefined,
-      },
-    });
-    actionAd.trackAction();
-    router.back();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const dateStr = formatDate(selectedDate);
+      await dispatch(addLog({
+        id: `${dateStr}-sleep-${Date.now()}`,
+        date: dateStr,
+        symptoms: [],
+        isPeriod: false,
+        sleep: {
+          hours,
+          quality,
+          notes: notes.trim() || undefined,
+        },
+      }));
+      actionAd.trackAction();
+      setSaving(false);
+      router.back();
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert("Save Error", e?.message ?? "Could not save entry");
+    }
   };
 
   return (
@@ -259,14 +270,17 @@ export default function LogSleepScreen() {
           </View>
 
           <CustomButton
-            title="Save Entry"
+            title={saving ? "Saving..." : "Save Entry"}
             onPress={handleSave}
             size="lg"
             bgVariant="purple"
             className="bg-indigo-500 active:bg-indigo-600"
+            disabled={saving}
           />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+

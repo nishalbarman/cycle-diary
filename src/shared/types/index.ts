@@ -65,6 +65,7 @@ export interface PeriodLog {
   cramps?: CrampEntry;
   cravings?: CravingEntry;
   sleep?: SleepEntry;
+  water?: number; // Glasses of water (0-12)
 }
 
 export interface CycleData {
@@ -78,9 +79,13 @@ export interface UserSettings {
   cycleLength: number; // average days (default 28)
   periodLength: number; // average days (default 5)
   lastPeriodStart: string | null; // YYYY-MM-DD
+  primaryGoal?: "track_period" | "predict_fertility" | "monitor_wellness";
   notificationsEnabled: boolean;
   notifyBeforeDays: number; // days before predicted period
   notifyTime: string; // HH:mm
+  ovulationReminderEnabled: boolean;
+  pillReminderEnabled: boolean;
+  pillNotifyTime: string; // HH:mm
   symptomTracking: boolean;
   flowTracking: boolean;
   onboardingComplete: boolean;

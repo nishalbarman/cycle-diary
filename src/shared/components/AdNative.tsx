@@ -1,5 +1,5 @@
 import { memo, useEffect, useState } from "react";
-import { Image, Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
+import { Image, Platform, StyleSheet, Text, View } from "react-native";
 import {
   NativeAd,
   NativeAdEventType,
@@ -10,9 +10,11 @@ import {
 } from "react-native-google-mobile-ads";
 
 import { useCheckAdFree } from "../hooks/ads/useCheckAdFree";
-import { useAdConfigStore } from "../store/adConfigStore";
-import { useAdActivityStore } from "../store/adActivityStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectAdEnabled } from "@/store/adConfigSlice";
+import { selectIsUserBlocked, trackFrequentAdClick, trackDailyAdClick } from "@/store/adActivitySlice";
 import { getAdRequestOptions } from "../services/ads";
+import theme from "@/shared/theme";
 
 const AdLabel = ({ isDark }: { isDark: boolean }) => {
   return (
@@ -33,17 +35,19 @@ const AdLabel = ({ isDark }: { isDark: boolean }) => {
 };
 
 function NativeAdItem({ style, compact = false }: { style?: any; compact?: boolean }) {
+  const dispatch = useAppDispatch();
   const [nativeAd, setNativeAd] = useState<NativeAd | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const isDark = useColorScheme() === "dark";
-  const {
-    isEnabled,
-    nativeId,
-    frequentInterval,
-    maximumAllowedFrequentClicks,
-  } = useAdConfigStore();
-  const { isUserBlocked, trackFrequentAdClick, trackDailyAdClick } = useAdActivityStore();
+  // Force Light mode as per app theme specification
+  const isDark = false;
+
+  const isEnabled = useAppSelector(selectAdEnabled);
+  const nativeId = useAppSelector((s) => s.adConfig.nativeId);
+  const isUserBlocked = useAppSelector(selectIsUserBlocked);
   const { isAdFree } = useCheckAdFree();
+
+  const trackFrequentClick = () => dispatch(trackFrequentAdClick());
+  const trackDailyClick = () => dispatch(trackDailyAdClick());
 
   useEffect(() => {
     if (!isEnabled || !nativeId || isUserBlocked || isAdFree) {
@@ -87,12 +91,12 @@ function NativeAdItem({ style, compact = false }: { style?: any; compact?: boole
     const listener = nativeAd.addAdEventListener(
       NativeAdEventType.CLICKED,
       () => {
-        trackFrequentAdClick();
-        trackDailyAdClick();
+        trackFrequentClick();
+        trackDailyClick();
       },
     );
     return () => listener.remove();
-  }, [nativeAd, isAdFree, trackFrequentAdClick, trackDailyAdClick]);
+  }, [nativeAd, isAdFree]);
 
   if (isAdFree || !isEnabled || isUserBlocked) return null;
 
@@ -102,11 +106,11 @@ function NativeAdItem({ style, compact = false }: { style?: any; compact?: boole
     ) : null;
   }
 
-  const cardBg = isDark ? "#1F2937" : "#FFFFFF";
-  const borderColor = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
-  const textColor = isDark ? "#F9FAFB" : "#1F2937";
-  const bodyColor = isDark ? "#D1D5DB" : "#6B7280";
-  const primaryColor = "#ec4899";
+  const cardBg = "#FFFFFF";
+  const borderColor = "rgba(0,0,0,0.08)";
+  const textColor = "#1F2937";
+  const bodyColor = "#6B7280";
+  const primaryColor = theme.primary;
 
   return (
     <View
@@ -163,9 +167,7 @@ function NativeAdItem({ style, compact = false }: { style?: any; compact?: boole
             style={[
               styles.media,
               {
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.06)"
-                  : "rgba(0,0,0,0.04)",
+                backgroundColor: "rgba(0,0,0,0.04)",
               },
             ]}
           />
@@ -190,8 +192,8 @@ function NativeAdItem({ style, compact = false }: { style?: any; compact?: boole
 export default memo(NativeAdItem);
 
 const NativeAdPlaceholder = ({ compact, style, isDark }: { compact?: boolean; style?: any; isDark: boolean }) => {
-  const blockColor = isDark ? "rgba(255,255,255,0.08)" : "#E5E7EB";
-  const mutedBlockColor = isDark ? "rgba(255,255,255,0.05)" : "#F3F4F6";
+  const blockColor = "#E5E7EB";
+  const mutedBlockColor = "#F3F4F6";
 
   return (
     <View
@@ -200,10 +202,8 @@ const NativeAdPlaceholder = ({ compact, style, isDark }: { compact?: boolean; st
         styles.adContainer,
         styles.placeholderContainer,
         {
-          backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
-          borderColor: isDark
-            ? "rgba(255,255,255,0.10)"
-            : "rgba(0,0,0,0.08)",
+          backgroundColor: "#FFFFFF",
+          borderColor: "rgba(0,0,0,0.08)",
         },
         compact && styles.compactContainer,
         style,
@@ -246,105 +246,93 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 4,
     alignSelf: "flex-start",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   labelText: {
     fontSize: 10,
-    fontWeight: "700",
+    fontWeight: "600",
     textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   adContainer: {
-    width: "95%",
-    borderRadius: 12,
+    width: "100%",
+    borderRadius: 16,
     borderWidth: 1,
     padding: 14,
-    marginBottom: 15,
     overflow: "hidden",
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 4,
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  placeholderContainer: {
-    opacity: 0.9,
-  },
-  placeholderLabel: {
-    width: 88,
-    height: 18,
-    borderRadius: 4,
-    marginBottom: 10,
-  },
-  placeholderIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-  },
-  placeholderLine: {
-    width: "78%",
-    height: 14,
-    borderRadius: 4,
-  },
-  placeholderLineShort: {
-    width: "56%",
-    height: 12,
-    marginTop: 8,
-  },
-  placeholderMedia: {
-    width: "100%",
-    aspectRatio: 16 / 9,
-    marginTop: 12,
-    borderRadius: 8,
-  },
-  placeholderCta: {
-    height: 38,
-    marginTop: 12,
-    borderRadius: 8,
   },
   compactContainer: {
-    padding: 12,
+    padding: 10,
   },
   topRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 12,
+    alignItems: "center",
+    marginBottom: 10,
   },
   icon: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
   },
   copy: {
     flex: 1,
+    gap: 2,
   },
   headline: {
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
+    lineHeight: 20,
   },
   body: {
-    marginTop: 4,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 13,
+    lineHeight: 18,
   },
   media: {
     width: "100%",
-    aspectRatio: 16 / 9,
-    marginTop: 12,
-    borderRadius: 8,
+    height: 160,
+    borderRadius: 12,
+    marginBottom: 12,
   },
   ctaButton: {
-    marginTop: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    width: "100%",
+    paddingVertical: 12,
+    borderRadius: 12,
     alignItems: "center",
+    justifyContent: "center",
   },
   ctaText: {
     color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 13,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  placeholderContainer: {
+    opacity: 0.7,
+  },
+  placeholderIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+  },
+  placeholderLine: {
+    height: 12,
+    borderRadius: 6,
+    width: "80%",
+    marginBottom: 6,
+  },
+  placeholderLineShort: {
+    width: "50%",
+    height: 10,
+  },
+  placeholderMedia: {
+    width: "100%",
+    height: 140,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  placeholderCta: {
+    width: "100%",
+    height: 40,
+    borderRadius: 12,
   },
 });

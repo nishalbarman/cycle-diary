@@ -43,6 +43,11 @@ function ensureTables(expo: SQLite.SQLiteDatabase) {
 
   const lightMigrations = [
     `ALTER TABLE user_settings ADD COLUMN has_seen_storage_notice INTEGER NOT NULL DEFAULT 0;`,
+    `ALTER TABLE period_logs ADD COLUMN water INTEGER DEFAULT 0;`,
+    `ALTER TABLE user_settings ADD COLUMN ovulation_reminder_enabled INTEGER NOT NULL DEFAULT 1;`,
+    `ALTER TABLE user_settings ADD COLUMN pill_reminder_enabled INTEGER NOT NULL DEFAULT 0;`,
+    `ALTER TABLE user_settings ADD COLUMN pill_notify_time TEXT NOT NULL DEFAULT '20:00';`,
+    `ALTER TABLE user_settings ADD COLUMN primary_goal TEXT DEFAULT 'track_period';`,
   ];
   for (const stmt of lightMigrations) {
     try {

@@ -2,21 +2,24 @@ import { useEffect, useRef } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { AppOpenAd, AdEventType } from "react-native-google-mobile-ads";
 
-import { useAdConfigStore } from "../../store/adConfigStore";
-import { useAdActivityStore } from "../../store/adActivityStore";
-import { useAdFreeStore } from "../../store/adFreeStore";
-import { getAdRequestOptions, isNpa } from "../../services/ads";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { setAppOpenLastShown, setAnyAdLastShownTime, selectIsUserBlocked, selectAppOpenLastShown } from "@/store/adActivitySlice";
+import { selectAdEnabled } from "@/store/adConfigSlice";
+import { selectIsAdFree } from "@/store/adFreeSlice";
+import { getAdRequestOptions } from "../../services/ads";
 import { isUserBlockedFromAds } from "../../services/ads/fraud";
 
 export function useAppOpenAd(): void {
-  const isEnabled = useAdConfigStore((s) => s.isEnabled);
-  const appOpenId = useAdConfigStore((s) => s.appOpenId);
-  const pauseTime = useAdConfigStore((s) => s.appOpenAdPauseTime);
-  const isUserBlocked = useAdActivityStore((s) => s.isUserBlocked);
-  const isAdFree = useAdFreeStore((s) => s.isAdFree);
-  const setLastShown = useAdActivityStore((s) => s.setAppOpenLastShown);
-  const setAnyAdShown = useAdActivityStore((s) => s.setAnyAdLastShownTime);
-  const lastShown = useAdActivityStore((s) => s.lastAdShownTime.appOpen);
+  const dispatch = useAppDispatch();
+  const isEnabled = useAppSelector(selectAdEnabled);
+  const appOpenId = useAppSelector((s) => s.adConfig.appOpenId);
+  const pauseTime = useAppSelector((s) => s.adConfig.appOpenAdPauseTime);
+  const isUserBlocked = useAppSelector(selectIsUserBlocked);
+  const isAdFree = useAppSelector(selectIsAdFree);
+  const lastShown = useAppSelector(selectAppOpenLastShown);
+
+  const setLastShown = (time: number) => dispatch(setAppOpenLastShown(time));
+  const setAnyAdShown = (time: number) => dispatch(setAnyAdLastShownTime(time));
 
   const adRef = useRef<AppOpenAd | null>(null);
   const loadedRef = useRef(false);
@@ -67,8 +70,7 @@ export function useAppOpenAd(): void {
     isAdFree,
     lastShown,
     pauseTime,
-    setLastShown,
-    setAnyAdShown,
+    dispatch,
   ]);
 
   useEffect(() => {

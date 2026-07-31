@@ -1,9 +1,14 @@
+const { currentTheme } = require("./theme.config");
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./src/**/*.{js,jsx,ts,tsx}"],
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      colors: {
+        pink: currentTheme.pink,
+      },
       fontFamily: {
         sans: ["Inter_400Regular"],
         inter: ["Inter_400Regular"],

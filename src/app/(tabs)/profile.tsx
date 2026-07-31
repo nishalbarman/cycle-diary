@@ -1,2 +1,2 @@
-import ProfileScreen from "@/modules/profile/components/ProfileScreen";
-export default ProfileScreen;
+import SettingsScreen from "@/modules/settings/components/SettingsScreen";
+export default SettingsScreen;

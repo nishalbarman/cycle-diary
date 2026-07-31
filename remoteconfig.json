@@ -1,0 +1,21 @@
+{
+    "ad_config": {
+        "isEnabled": true,
+        "bannerId": "ca-app-pub-3940256099942544/6300978111",
+        "appopenId": "ca-app-pub-3940256099942544/9257395921",
+        "interstitialId": "ca-app-pub-3940256099942544/1033173712",
+        "rewardedId": "ca-app-pub-3940256099942544/5224354917",
+        "nativeId": "ca-app-pub-3940256099942544/2247696110",
+        "frequentInterval": 1000,
+        "maximumAllowedFrequentClicks": 3,
+        "appOpenAdPauseTime": 120000,
+        "interstitialAdPauseTime": 60000,
+        "rewardedAdPauseTime": 60000,
+        "maximumAllowedClicksPerDay": 7
+    },
+    "android_version_config": {
+        "versionCode": 54,
+        "forceUpdate": true
+    },
+    "adFreeUnlockTime": 0
+}

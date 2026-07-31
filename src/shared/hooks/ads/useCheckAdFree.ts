@@ -1,5 +1,10 @@
-import { useEffect, useState } from "react";
-import { useAdFreeStore } from "../../store/adFreeStore";
+import { useEffect, useState, useCallback } from "react";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  selectIsAdFree,
+  startAdFree as startAdFreeAction,
+  checkAdFreeStatus as checkAdFreeStatusAction,
+} from "@/store/adFreeSlice";
 
 const HOUR_MS = 60 * 60 * 1000;
 
@@ -14,11 +19,18 @@ export interface UseCheckAdFreeResult {
 }
 
 export function useCheckAdFree(): UseCheckAdFreeResult {
-  const isAdFree = useAdFreeStore((s) => s.isAdFree);
-  const adFreeStartTime = useAdFreeStore((s) => s.adFreeStartTime);
-  const adFreeUnlockTime = useAdFreeStore((s) => s.adFreeUnlockTime);
-  const startAdFree = useAdFreeStore((s) => s.startAdFree);
-  const checkAdFreeStatus = useAdFreeStore((s) => s.checkAdFreeStatus);
+  const dispatch = useAppDispatch();
+  const isAdFree = useAppSelector(selectIsAdFree);
+  const adFreeStartTime = useAppSelector((s) => s.adFree.adFreeStartTime);
+  const adFreeUnlockTime = useAppSelector((s) => s.adFree.adFreeUnlockTime);
+
+  const startAdFree = useCallback(() => {
+    dispatch(startAdFreeAction());
+  }, [dispatch]);
+
+  const checkAdFreeStatus = useCallback(() => {
+    dispatch(checkAdFreeStatusAction());
+  }, [dispatch]);
 
   const [, setTick] = useState(0);
   useEffect(() => {

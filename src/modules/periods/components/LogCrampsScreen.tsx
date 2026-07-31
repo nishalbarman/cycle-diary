@@ -7,13 +7,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
 import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppDispatch } from "@/store/hooks";
+import { addLog } from "@/store/logSlice";
 import { CrampSeverity } from "@/shared/types";
 import { formatDate } from "@/shared/utils/cycle";
 
@@ -62,7 +64,7 @@ const SEVERITY_OPTIONS: {
 export default function LogCrampsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const addLog = usePeriodStore((s) => s.addLog);
+  const dispatch = useAppDispatch();
   const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -71,6 +73,7 @@ export default function LogCrampsScreen() {
     "lower_abdomen" | "back" | "thighs" | "other" | undefined
   >("lower_abdomen");
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const adjustDay = (delta: number) => {
     setSelectedDate(
@@ -80,20 +83,28 @@ export default function LogCrampsScreen() {
   };
 
   const handleSave = async () => {
-    const dateStr = formatDate(selectedDate);
-    await addLog({
-      id: `${dateStr}-cramp-${Date.now()}`,
-      date: dateStr,
-      symptoms: [],
-      isPeriod: false,
-      cramps: {
-        severity,
-        location,
-        notes: notes.trim() || undefined,
-      },
-    });
-    actionAd.trackAction();
-    router.back();
+    if (saving) return;
+    setSaving(true);
+    try {
+      const dateStr = formatDate(selectedDate);
+      await dispatch(addLog({
+        id: `${dateStr}-cramp-${Date.now()}`,
+        date: dateStr,
+        symptoms: [],
+        isPeriod: false,
+        cramps: {
+          severity,
+          location,
+          notes: notes.trim() || undefined,
+        },
+      }));
+      actionAd.trackAction();
+      setSaving(false);
+      router.back();
+    } catch (e: any) {
+      setSaving(false);
+      Alert.alert("Save Error", e?.message ?? "Could not save entry");
+    }
   };
 
   return (
@@ -246,13 +257,16 @@ export default function LogCrampsScreen() {
           </View>
 
           <CustomButton
-            title="Save Entry"
+            title={saving ? "Saving..." : "Save Entry"}
             onPress={handleSave}
             size="lg"
             bgVariant="danger"
+            disabled={saving}
           />
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+

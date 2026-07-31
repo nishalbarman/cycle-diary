@@ -1,3 +1,3 @@
-const weekDay = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-export default weekDay;
+export default weekDays;

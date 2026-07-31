@@ -4,82 +4,94 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppDispatch } from "@/store/hooks";
+import { updateSettings } from "@/store/settingsSlice";
+import theme from "@/shared/theme";
 
-type Step = "welcome" | "cycle" | "period" | "last" | "done";
+type Step = "welcome" | "cycle" | "period" | "last";
 
 export default function OnboardingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const updateSettings = usePeriodStore((s) => s.updateSettings);
-  const settings = usePeriodStore((s) => s.settings);
+  const dispatch = useAppDispatch();
+  const handleUpdateSettings = (updates: Parameters<typeof updateSettings>[0]) =>
+    dispatch(updateSettings(updates));
 
   const [step, setStep] = useState<Step>("welcome");
   const [cycleLength, setCycleLength] = useState(28);
   const [periodLength, setPeriodLength] = useState(5);
   const [lastPeriodDate, setLastPeriodDate] = useState(new Date());
 
+  const STEPS: Step[] = ["welcome", "cycle", "period", "last"];
+
   const renderStep = () => {
     switch (step) {
-        case "welcome":
-          return (
-            <View className="items-center flex-1 justify-center px-6">
-              <View className="w-24 h-24 bg-pink-500 rounded-full items-center justify-center mb-6">
-                <Ionicons name="rose" size={44} color="white" />
-              </View>
-              <Text className="text-3xl font-lexend-bold text-gray-900 text-center mb-3">
-                Welcome to Cycle Diary
-              </Text>
-              <Text className="text-gray-500 font-lexend text-center text-lg leading-6">
-                Track your menstrual cycle, predict your next period, and understand your body better.
-              </Text>
-              <View className="mt-6 flex-row items-center bg-white/80 rounded-2xl px-4 py-3">
-                <Ionicons name="shield-checkmark-outline" size={18} color="#6b7280" />
-                <Text className="ml-2 text-xs font-lexend text-gray-500 flex-1">
-                  This app shows ads. You’ll be asked for consent before any ad
-                  loads, and you can change your choices anytime in Settings.
-                </Text>
-              </View>
-              <View className="mt-8">
-                <CustomButton
-                  title="Get Started"
-                  size="lg"
-                  onPress={() => setStep("cycle")}
-                />
-              </View>
+      case "welcome":
+        return (
+          <View className="items-center flex-1 justify-center px-6">
+            <View
+              className="w-24 h-24 rounded-3xl items-center justify-center mb-6 shadow-md"
+              style={{ backgroundColor: theme.primary }}>
+              <Ionicons name="rose" size={48} color="white" />
             </View>
-          );
+            <Text className="text-3xl font-lexend-bold text-gray-900 text-center mb-3">
+              Welcome to Cycle Diary
+            </Text>
+            <Text className="text-gray-500 font-lexend text-center text-base leading-6">
+              Track your menstrual cycle, predict your next period & ovulation, log symptoms, and monitor daily hydration & health.
+            </Text>
+
+            <View className="mt-6 flex-row items-center bg-white rounded-2xl px-4 py-3 border border-gray-100 shadow-sm">
+              <Ionicons name="sparkles" size={20} color={theme.primary} />
+              <Text className="ml-3 text-xs font-lexend text-gray-600 flex-1">
+                All features included: Period Predictions, Fertile Window, Daily Hydration, Symptom & Mood Tracking.
+              </Text>
+            </View>
+
+            <View className="mt-8 w-full">
+              <CustomButton
+                title="Get Started"
+                size="lg"
+                onPress={() => setStep("cycle")}
+              />
+            </View>
+          </View>
+        );
 
       case "cycle":
         return (
           <View className="flex-1 justify-center px-6">
             <Text className="text-2xl font-lexend-bold text-gray-900 mb-2">
-              What's your typical cycle length?
+              What's your average cycle length?
             </Text>
-            <Text className="text-gray-500 font-lexend mb-8">
-              The average cycle is 28 days, but it can vary from 21 to 35 days.
+            <Text className="text-gray-500 font-lexend mb-8 text-sm">
+              The average cycle is 28 days (from the start of one period to the start of the next).
             </Text>
-            <View className="bg-white rounded-2xl p-6 shadow-sm items-center">
-              <Text className="text-5xl font-lexend-bold text-pink-500 mb-4">
+
+            <View className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 items-center">
+              <Text className="text-5xl font-lexend-bold mb-2" style={{ color: theme.primary }}>
                 {cycleLength}
               </Text>
-              <Text className="text-gray-400 font-lexend mb-6">days</Text>
+              <Text className="text-gray-400 font-lexend mb-6 text-sm">days</Text>
               <View className="flex-row items-center gap-6">
                 <Pressable
                   onPress={() => setCycleLength(Math.max(18, cycleLength - 1))}
-                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center">
+                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center active:bg-gray-200">
                   <Ionicons name="remove" size={24} color="#374151" />
                 </Pressable>
                 <Pressable
                   onPress={() => setCycleLength(Math.min(45, cycleLength + 1))}
-                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center">
-                  <Ionicons name="add" size={24} color="#374151" />
+                  className="w-12 h-12 rounded-full items-center justify-center active:opacity-80"
+                  style={{ backgroundColor: theme.primary }}>
+                  <Ionicons name="add" size={24} color="#ffffff" />
                 </Pressable>
               </View>
             </View>
+
             <View className="mt-8">
               <CustomButton
                 title="Next"
+                size="lg"
                 onPress={() => setStep("period")}
               />
             </View>
@@ -90,32 +102,36 @@ export default function OnboardingScreen() {
         return (
           <View className="flex-1 justify-center px-6">
             <Text className="text-2xl font-lexend-bold text-gray-900 mb-2">
-              How long does your period typically last?
+              How long does your period last?
             </Text>
-            <Text className="text-gray-500 font-lexend mb-8">
-              The average period lasts 3 to 7 days.
+            <Text className="text-gray-500 font-lexend mb-8 text-sm">
+              The average period duration is between 3 to 7 days.
             </Text>
-            <View className="bg-white rounded-2xl p-6 shadow-sm items-center">
-              <Text className="text-5xl font-lexend-bold text-pink-500 mb-4">
+
+            <View className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 items-center">
+              <Text className="text-5xl font-lexend-bold mb-2" style={{ color: theme.primary }}>
                 {periodLength}
               </Text>
-              <Text className="text-gray-400 font-lexend mb-6">days</Text>
+              <Text className="text-gray-400 font-lexend mb-6 text-sm">days</Text>
               <View className="flex-row items-center gap-6">
                 <Pressable
                   onPress={() => setPeriodLength(Math.max(1, periodLength - 1))}
-                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center">
+                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center active:bg-gray-200">
                   <Ionicons name="remove" size={24} color="#374151" />
                 </Pressable>
                 <Pressable
                   onPress={() => setPeriodLength(Math.min(10, periodLength + 1))}
-                  className="w-12 h-12 bg-gray-100 rounded-full items-center justify-center">
-                  <Ionicons name="add" size={24} color="#374151" />
+                  className="w-12 h-12 rounded-full items-center justify-center active:opacity-80"
+                  style={{ backgroundColor: theme.primary }}>
+                  <Ionicons name="add" size={24} color="#ffffff" />
                 </Pressable>
               </View>
             </View>
+
             <View className="mt-8">
               <CustomButton
                 title="Next"
+                size="lg"
                 onPress={() => setStep("last")}
               />
             </View>
@@ -131,45 +147,55 @@ export default function OnboardingScreen() {
             <Text className="text-2xl font-lexend-bold text-gray-900 mb-2">
               When did your last period start?
             </Text>
-            <Text className="text-gray-500 font-lexend mb-8">
-              This helps us predict your next cycle.
+            <Text className="text-gray-500 font-lexend mb-8 text-sm">
+              This date initializes your prediction calculations.
             </Text>
-            <View className="bg-white rounded-2xl p-6 shadow-sm items-center">
-              <Ionicons name="calendar" size={48} color="#ec4899" />
-              <Text className="text-xl font-lexend-semibold text-gray-900 mt-4 mb-6">
+
+            <View className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 items-center">
+              <View className="w-16 h-16 rounded-2xl items-center justify-center mb-4" style={{ backgroundColor: theme.primaryLight }}>
+                <Ionicons name="calendar" size={32} color={theme.primary} />
+              </View>
+              <Text className="text-lg font-lexend-semibold text-gray-900 text-center mb-6">
                 {lastPeriodDate.toLocaleDateString("en-US", {
-                  weekday: "long",
+                  weekday: "short",
                   month: "long",
                   day: "numeric",
                   year: "numeric",
                 })}
               </Text>
-              <View className="flex-row gap-4">
+
+              <View className="flex-row gap-3">
                 <Pressable
                   onPress={() => setLastPeriodDate(new Date(y, m, d - 1))}
-                  className="bg-gray-100 px-4 py-3 rounded-xl">
+                  className="bg-gray-100 px-4 py-3 rounded-xl active:bg-gray-200">
                   <Ionicons name="chevron-back" size={20} color="#374151" />
                 </Pressable>
                 <Pressable
                   onPress={() => setLastPeriodDate(new Date())}
-                  className="bg-gray-100 px-4 py-3 rounded-xl">
-                  <Text className="font-lexend text-gray-600">Today</Text>
+                  className="bg-gray-100 px-5 py-3 rounded-xl active:bg-gray-200">
+                  <Text className="font-lexend-semibold text-gray-700 text-sm">Today</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setLastPeriodDate(new Date(y, m, d + 1))}
-                  className="bg-gray-100 px-4 py-3 rounded-xl">
+                  className="bg-gray-100 px-4 py-3 rounded-xl active:bg-gray-200">
                   <Ionicons name="chevron-forward" size={20} color="#374151" />
                 </Pressable>
               </View>
             </View>
+
             <View className="mt-8">
               <CustomButton
-                title="Done"
+                title="Complete Setup"
+                size="lg"
                 onPress={() => {
-                  updateSettings({
+                  handleUpdateSettings({
                     cycleLength,
                     periodLength,
                     lastPeriodStart: `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+                    symptomTracking: true,
+                    flowTracking: true,
+                    notificationsEnabled: true,
+                    ovulationReminderEnabled: true,
                     onboardingComplete: true,
                   });
                   router.replace("/(tabs)");
@@ -186,20 +212,19 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <View className="flex-1 bg-pink-50" style={{ paddingTop: insets.top }}>
-      {/* Progress dots */}
-      <View className="flex-row justify-center gap-2 py-4">
-        {(["welcome", "cycle", "period", "last"] as const).map((s) => (
-          <View
-            key={s}
-            className={`w-2.5 h-2.5 rounded-full ${
-              ["welcome", "cycle", "period", "last"].indexOf(s) <=
-              ["welcome", "cycle", "period", "last"].indexOf(step)
-                ? "bg-pink-500"
-                : "bg-gray-300"
-            }`}
-          />
-        ))}
+    <View className="flex-1 bg-gray-50" style={{ paddingTop: insets.top }}>
+      {/* Progress Bar */}
+      <View className="flex-row justify-center gap-2 py-4 px-6">
+        {STEPS.map((s) => {
+          const completed = STEPS.indexOf(s) <= STEPS.indexOf(step);
+          return (
+            <View
+              key={s}
+              className="flex-1 h-1.5 rounded-full"
+              style={{ backgroundColor: completed ? theme.primary : "#e5e7eb" }}
+            />
+          );
+        })}
       </View>
       {renderStep()}
     </View>

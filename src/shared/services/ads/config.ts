@@ -15,7 +15,7 @@ export interface AdConfig {
   rewardedAdPauseTime: number;
   frequentInterval: number;
   maximumAllowedFrequentClicks: number;
-  dailyClickBlockThreshold: number;
+  maximumAllowedClicksPerDay: number;
   adFreeUnlockTime: number;
   remoteBlocklist: string[];
   fraudClickWindowMs: number;
@@ -41,7 +41,7 @@ const REMOTE_KEYS = {
   rewardedAdPauseTime: "ads_rewarded_pause_time_ms",
   frequentInterval: "ads_frequent_interval_ms",
   maximumAllowedFrequentClicks: "ads_max_frequent_clicks",
-  dailyClickBlockThreshold: "ads_daily_click_block_threshold",
+  maximumAllowedClicksPerDay: "ads_daily_click_block_threshold",
   adFreeUnlockTime: "ad_free_unlock_time_hours",
   remoteBlocklist: "ads_blocked_device_ids",
   fraudClickWindowMs: "ads_fraud_click_window_ms",
@@ -62,7 +62,7 @@ const fallback = (): AdConfig => ({
   rewardedAdPauseTime: 60_000,
   frequentInterval: 1_000,
   maximumAllowedFrequentClicks: 3,
-  dailyClickBlockThreshold: 10,
+  maximumAllowedClicksPerDay: 7,
   adFreeUnlockTime: 5,
   remoteBlocklist: [],
   fraudClickWindowMs: 2_000,
@@ -130,10 +130,10 @@ function applyJsonJsonServer(json: string | undefined): Partial<AdConfig> | null
         parsed.maximumAllowedFrequentClicks,
         3,
       );
-    if ("dailyClickBlockThreshold" in parsed)
-      out.dailyClickBlockThreshold = asNumber(
-        parsed.dailyClickBlockThreshold,
-        10,
+    if ("maximumAllowedClicksPerDay" in parsed || "dailyClickBlockThreshold" in parsed)
+      out.maximumAllowedClicksPerDay = asNumber(
+        parsed.maximumAllowedClicksPerDay ?? parsed.dailyClickBlockThreshold,
+        7,
       );
     if ("adFreeUnlockTime" in parsed)
       out.adFreeUnlockTime = asNumber(parsed.adFreeUnlockTime, 5);
@@ -152,8 +152,7 @@ export async function fetchAdConfig(force = false): Promise<AdConfig> {
   const fb = fallback();
   try {
     await remoteConfig().setConfigSettings({
-      minimumFetchIntervalInSeconds: 300,
-      fetchTimeMillis: 60_000,
+      minimumFetchIntervalMillis: 300_000,
     });
     await remoteConfig().setDefaults({
       [REMOTE_KEYS.adConfig]: "{}",
@@ -169,7 +168,7 @@ export async function fetchAdConfig(force = false): Promise<AdConfig> {
       [REMOTE_KEYS.rewardedAdPauseTime]: fb.rewardedAdPauseTime,
       [REMOTE_KEYS.frequentInterval]: fb.frequentInterval,
       [REMOTE_KEYS.maximumAllowedFrequentClicks]: fb.maximumAllowedFrequentClicks,
-      [REMOTE_KEYS.dailyClickBlockThreshold]: fb.dailyClickBlockThreshold,
+      [REMOTE_KEYS.maximumAllowedClicksPerDay]: fb.maximumAllowedClicksPerDay,
       [REMOTE_KEYS.adFreeUnlockTime]: fb.adFreeUnlockTime,
       [REMOTE_KEYS.remoteBlocklist]: fb.remoteBlocklist.join(","),
       [REMOTE_KEYS.fraudClickWindowMs]: fb.fraudClickWindowMs,
@@ -181,83 +180,71 @@ export async function fetchAdConfig(force = false): Promise<AdConfig> {
 
   const rc = remoteConfig();
   const jsonOverride = applyJsonJsonServer(
-    String(rc.getValue(REMOTE_KEYS.adConfig).value ?? "{}"),
+    rc.getValue(REMOTE_KEYS.adConfig).asString(),
   );
 
   const cfg: AdConfig = {
     ...fb,
     ...(jsonOverride ?? {}),
     isEnabled: asBool(
-      jsonOverride?.isEnabled ?? rc.getValue(REMOTE_KEYS.enabled).value,
+      jsonOverride?.isEnabled ?? rc.getValue(REMOTE_KEYS.enabled).asBoolean(),
       fb.isEnabled,
     ),
     testMode: asBool(
-      jsonOverride?.testMode ?? rc.getValue(REMOTE_KEYS.testMode).value,
+      jsonOverride?.testMode ?? rc.getValue(REMOTE_KEYS.testMode).asBoolean(),
       fb.testMode,
     ),
-    bannerId: String(
-      jsonOverride?.bannerId ?? rc.getValue(REMOTE_KEYS.bannerId).value ?? fb.bannerId,
-    ),
-    interstitialId: String(
-      jsonOverride?.interstitialId ??
-        rc.getValue(REMOTE_KEYS.interstitialId).value ??
-        fb.interstitialId,
-    ),
-    rewardedId: String(
-      jsonOverride?.rewardedId ?? rc.getValue(REMOTE_KEYS.rewardedId).value ?? fb.rewardedId,
-    ),
-    appOpenId: String(
-      jsonOverride?.appOpenId ?? rc.getValue(REMOTE_KEYS.appOpenId).value ?? fb.appOpenId,
-    ),
-    nativeId: String(
-      jsonOverride?.nativeId ?? rc.getValue(REMOTE_KEYS.nativeId).value ?? fb.nativeId,
-    ),
+    bannerId: rc.getValue(REMOTE_KEYS.bannerId).asString() || fb.bannerId,
+    interstitialId: rc.getValue(REMOTE_KEYS.interstitialId).asString() || fb.interstitialId,
+    rewardedId: rc.getValue(REMOTE_KEYS.rewardedId).asString() || fb.rewardedId,
+    appOpenId: rc.getValue(REMOTE_KEYS.appOpenId).asString() || fb.appOpenId,
+    nativeId: rc.getValue(REMOTE_KEYS.nativeId).asString() || fb.nativeId,
     appOpenAdPauseTime: asNumber(
       jsonOverride?.appOpenAdPauseTime ??
-        rc.getValue(REMOTE_KEYS.appOpenAdPauseTime).value,
+        rc.getValue(REMOTE_KEYS.appOpenAdPauseTime).asNumber(),
       fb.appOpenAdPauseTime,
     ),
     interstitialAdPauseTime: asNumber(
       jsonOverride?.interstitialAdPauseTime ??
-        rc.getValue(REMOTE_KEYS.interstitialAdPauseTime).value,
+        rc.getValue(REMOTE_KEYS.interstitialAdPauseTime).asNumber(),
       fb.interstitialAdPauseTime,
     ),
     rewardedAdPauseTime: asNumber(
       jsonOverride?.rewardedAdPauseTime ??
-        rc.getValue(REMOTE_KEYS.rewardedAdPauseTime).value,
+        rc.getValue(REMOTE_KEYS.rewardedAdPauseTime).asNumber(),
       fb.rewardedAdPauseTime,
     ),
     frequentInterval: asNumber(
-      jsonOverride?.frequentInterval ?? rc.getValue(REMOTE_KEYS.frequentInterval).value,
+      jsonOverride?.frequentInterval ?? rc.getValue(REMOTE_KEYS.frequentInterval).asNumber(),
       fb.frequentInterval,
     ),
     maximumAllowedFrequentClicks: asNumber(
       jsonOverride?.maximumAllowedFrequentClicks ??
-        rc.getValue(REMOTE_KEYS.maximumAllowedFrequentClicks).value,
+        rc.getValue(REMOTE_KEYS.maximumAllowedFrequentClicks).asNumber(),
       fb.maximumAllowedFrequentClicks,
     ),
-    dailyClickBlockThreshold: asNumber(
-      jsonOverride?.dailyClickBlockThreshold ??
-        rc.getValue(REMOTE_KEYS.dailyClickBlockThreshold).value,
-      fb.dailyClickBlockThreshold,
+    maximumAllowedClicksPerDay: asNumber(
+      jsonOverride?.maximumAllowedClicksPerDay ??
+        rc.getValue(REMOTE_KEYS.maximumAllowedClicksPerDay).asNumber(),
+      fb.maximumAllowedClicksPerDay,
     ),
     adFreeUnlockTime: asNumber(
       jsonOverride?.adFreeUnlockTime ??
-        rc.getValue(REMOTE_KEYS.adFreeUnlockTime).value,
+        rc.getValue(REMOTE_KEYS.adFreeUnlockTime).asNumber(),
       fb.adFreeUnlockTime,
     ),
     remoteBlocklist: asList(
-      jsonOverride?.remoteBlocklist ?? rc.getValue(REMOTE_KEYS.remoteBlocklist).value,
+      jsonOverride?.remoteBlocklist ?? rc.getValue(REMOTE_KEYS.remoteBlocklist).asString(),
     ),
     fraudClickWindowMs: asNumber(
-      rc.getValue(REMOTE_KEYS.fraudClickWindowMs).value,
+      rc.getValue(REMOTE_KEYS.fraudClickWindowMs).asNumber(),
       fb.fraudClickWindowMs,
     ),
     fraudClickThreshold: asNumber(
-      rc.getValue(REMOTE_KEYS.fraudClickThreshold).value,
+      rc.getValue(REMOTE_KEYS.fraudClickThreshold).asNumber(),
       fb.fraudClickThreshold,
     ),
-    debugGeography: asGeo(rc.getValue(REMOTE_KEYS.debugGeography).value),
+    debugGeography: asGeo(rc.getValue(REMOTE_KEYS.debugGeography).asString()),
   };
 
   cached = cfg;

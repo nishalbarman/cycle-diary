@@ -11,7 +11,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { usePeriodStore } from "@/shared/store/periodStore";
+import { useAppSelector } from "@/store/hooks";
+import { selectLogs } from "@/store/logSlice";
 import { MoodType, PeriodLog } from "@/shared/types";
 import { parseDate } from "@/shared/utils/cycle";
 import { usePullToRefresh } from "@/shared/hooks/usePullToRefresh";
@@ -63,7 +64,7 @@ function formatMonthLabel(date: Date): string {
 export default function MoodHistoryScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const logs = usePeriodStore((s) => s.logs);
+  const logs = useAppSelector(selectLogs);
   const { refreshing, onRefresh } = usePullToRefresh();
 
   const moodEntries = useMemo(() => {
@@ -146,11 +147,9 @@ export default function MoodHistoryScreen() {
               className="w-10 h-10 -ml-2 items-center justify-center rounded-full bg-white/60">
               <Ionicons name="chevron-back" size={24} color="#ec4899" />
             </Pressable>
-            <Text className="text-3xl font-lexend-bold text-gray-900 mt-1">
-            History
-          </Text>
+            <Text className="text-sm font-lexend text-pink-500 ml-3 mt-2">Mood</Text>
           </View>
-          <Text className="text-sm font-lexend text-pink-500 mt-2">Mood</Text>
+          <Text className="text-3xl font-lexend-bold text-gray-900">History</Text>
         </View>
         <View className="px-5 mt-12 items-center">
           <View className="w-20 h-20 rounded-full bg-purple-100 items-center justify-center">
@@ -346,3 +345,4 @@ export default function MoodHistoryScreen() {
     </View>
   );
 }
+

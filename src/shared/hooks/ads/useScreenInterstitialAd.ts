@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useInterstitialAd } from "react-native-google-mobile-ads";
 
-import { useAdActivityStore, type ScreenKey } from "../../store/adActivityStore";
-import { useAdConfigStore } from "../../store/adConfigStore";
-import { useAdFreeStore } from "../../store/adFreeStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  setLastInterstitialShown,
+  setAnyAdLastShownTime,
+  trackFrequentAdClick,
+  trackDailyAdClick,
+  selectIsUserBlocked,
+  selectInterstitialLastShown,
+  type ScreenKey,
+} from "@/store/adActivitySlice";
+import { selectAdEnabled } from "@/store/adConfigSlice";
+import { selectIsAdFree, checkAdFreeStatus } from "@/store/adFreeSlice";
 import { getAdRequestOptions, isNpa } from "../../services/ads";
 import { isUserBlockedFromAds } from "../../services/ads/fraud";
 
@@ -23,19 +32,19 @@ export interface UseScreenInterstitialAdResult {
 export function useScreenInterstitialAd(
   screenKey: ScreenKey,
 ): UseScreenInterstitialAdResult {
-  const isEnabled = useAdConfigStore((s) => s.isEnabled);
-  const isUserBlocked = useAdActivityStore((s) => s.isUserBlocked);
-  const isAdFree = useAdFreeStore((s) => s.isAdFree);
-  const checkAdFree = useAdFreeStore((s) => s.checkAdFreeStatus);
-  const interstitialId = useAdConfigStore((s) => s.interstitialId);
-  const pauseTime = useAdConfigStore((s) => s.interstitialAdPauseTime);
-  const lastShown = useAdActivityStore(
-    (s) => s.lastAdShownTime.interstitial[screenKey],
-  );
-  const setLastShown = useAdActivityStore((s) => s.setLastInterstitialShown);
-  const setAnyAdShown = useAdActivityStore((s) => s.setAnyAdLastShownTime);
-  const trackFrequent = useAdActivityStore((s) => s.trackFrequentAdClick);
-  const trackDaily = useAdActivityStore((s) => s.trackDailyAdClick);
+  const dispatch = useAppDispatch();
+  const isEnabled = useAppSelector(selectAdEnabled);
+  const isUserBlocked = useAppSelector(selectIsUserBlocked);
+  const isAdFree = useAppSelector(selectIsAdFree);
+  const interstitialId = useAppSelector((s) => s.adConfig.interstitialId);
+  const pauseTime = useAppSelector((s) => s.adConfig.interstitialAdPauseTime);
+  const lastShown = useAppSelector(selectInterstitialLastShown(screenKey));
+
+  const checkAdFree = useCallback(() => dispatch(checkAdFreeStatus()), [dispatch]);
+  const setLastShown = useCallback((sk: ScreenKey, t?: number) => dispatch(setLastInterstitialShown({ screen: sk, time: t })), [dispatch]);
+  const setAnyAdShown = useCallback((t: number) => dispatch(setAnyAdLastShownTime(t)), [dispatch]);
+  const trackFrequent = useCallback(() => dispatch(trackFrequentAdClick()), [dispatch]);
+  const trackDaily = useCallback(() => dispatch(trackDailyAdClick()), [dispatch]);
 
   const npa = useMemo(() => getAdRequestOptions(), [isNpa()]);
   const isDeviceBlocked = isUserBlockedFromAds();
@@ -63,10 +72,9 @@ export function useScreenInterstitialAd(
     }
   }, [isClicked, trackFrequent, trackDaily]);
 
-  const isAdFreeActive = useAdFreeStore((s) => s.isAdFree);
   const pauseRemaining = lastShown ? Date.now() - lastShown < pauseTime : false;
 
-  const canLoadAd = !!adUnitId && !isAdFreeActive;
+  const canLoadAd = !!adUnitId && !isAdFree;
   const canShowAd = canLoadAd && isLoaded && !pauseRemaining;
 
   const lastClosedRef = useRef<number>(0);
@@ -90,7 +98,7 @@ export function useScreenInterstitialAd(
     isOpened,
     isClosed,
     isClicked,
-    error,
+    error: error ?? null,
     canLoadAd,
     canShowAd,
     load,

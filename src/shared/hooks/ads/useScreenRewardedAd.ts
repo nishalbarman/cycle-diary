@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useRewardedAd } from "react-native-google-mobile-ads";
 
-import { useAdActivityStore, type ScreenKey } from "../../store/adActivityStore";
-import { useAdConfigStore } from "../../store/adConfigStore";
-import { useAdFreeStore } from "../../store/adFreeStore";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  setLastRewardedShown,
+  setAnyAdLastShownTime,
+  trackFrequentAdClick,
+  trackDailyAdClick,
+  selectIsUserBlocked,
+  selectRewardedLastShown,
+  type ScreenKey,
+} from "@/store/adActivitySlice";
+import { selectAdEnabled } from "@/store/adConfigSlice";
+import { selectIsAdFree, checkAdFreeStatus, startAdFree as startAdFreeAction } from "@/store/adFreeSlice";
 import { getAdRequestOptions, isNpa } from "../../services/ads";
 import { isUserBlockedFromAds } from "../../services/ads/fraud";
 
@@ -25,20 +34,20 @@ export interface UseScreenRewardedAdResult {
 export function useScreenRewardedAd(
   screenKey: ScreenKey,
 ): UseScreenRewardedAdResult {
-  const isEnabled = useAdConfigStore((s) => s.isEnabled);
-  const isUserBlocked = useAdActivityStore((s) => s.isUserBlocked);
-  const isAdFree = useAdFreeStore((s) => s.isAdFree);
-  const checkAdFree = useAdFreeStore((s) => s.checkAdFreeStatus);
-  const rewardedId = useAdConfigStore((s) => s.rewardedId);
-  const pauseTime = useAdConfigStore((s) => s.rewardedAdPauseTime);
-  const lastShown = useAdActivityStore(
-    (s) => s.lastAdShownTime.rewarded[screenKey],
-  );
-  const setLastShown = useAdActivityStore((s) => s.setLastRewardedShown);
-  const setAnyAdShown = useAdActivityStore((s) => s.setAnyAdLastShownTime);
-  const trackFrequent = useAdActivityStore((s) => s.trackFrequentAdClick);
-  const trackDaily = useAdActivityStore((s) => s.trackDailyAdClick);
-  const startAdFree = useAdFreeStore((s) => s.startAdFree);
+  const dispatch = useAppDispatch();
+  const isEnabled = useAppSelector(selectAdEnabled);
+  const isUserBlocked = useAppSelector(selectIsUserBlocked);
+  const isAdFree = useAppSelector(selectIsAdFree);
+  const rewardedId = useAppSelector((s) => s.adConfig.rewardedId);
+  const pauseTime = useAppSelector((s) => s.adConfig.rewardedAdPauseTime);
+  const lastShown = useAppSelector(selectRewardedLastShown(screenKey));
+
+  const checkAdFree = useCallback(() => dispatch(checkAdFreeStatus()), [dispatch]);
+  const setLastShown = useCallback((sk: ScreenKey, t?: number) => dispatch(setLastRewardedShown({ screen: sk, time: t })), [dispatch]);
+  const setAnyAdShown = useCallback((t: number) => dispatch(setAnyAdLastShownTime(t)), [dispatch]);
+  const trackFrequent = useCallback(() => dispatch(trackFrequentAdClick()), [dispatch]);
+  const trackDaily = useCallback(() => dispatch(trackDailyAdClick()), [dispatch]);
+  const startAdFree = useCallback(() => dispatch(startAdFreeAction()), [dispatch]);
 
   const npa = useMemo(() => getAdRequestOptions(), [isNpa()]);
   const isDeviceBlocked = isUserBlockedFromAds();
@@ -80,8 +89,7 @@ export function useScreenRewardedAd(
   }, [isEarnedReward, reward, startAdFree]);
 
   const pauseRemaining = lastShown ? Date.now() - lastShown < pauseTime : false;
-  const isAdFreeActive = useAdFreeStore((s) => s.isAdFree);
-  const canLoadAd = !!adUnitId && !isAdFreeActive;
+  const canLoadAd = !!adUnitId && !isAdFree;
   const canShowAd = canLoadAd && isLoaded && !pauseRemaining;
 
   const lastClosedRef = useRef<number>(0);
@@ -105,9 +113,9 @@ export function useScreenRewardedAd(
     isOpened,
     isClosed,
     isClicked,
-    isEarnedReward,
-    reward,
-    error,
+    error: error ?? null,
+    isEarnedReward: isEarnedReward ?? false,
+    reward: reward ?? null,
     canLoadAd,
     canShowAd,
     load,

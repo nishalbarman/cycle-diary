@@ -78,6 +78,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   android: {
     softwareKeyboardLayoutMode: "pan",
     package: PACKAGE_NAME,
+    version: process.env.VERSION_NAME,
+    versionCode: process.env.VERSION_CODE,
     adaptiveIcon: {
       foregroundImage: "./src/assets/icons/adaptive-foreground.png",
       backgroundColor: "#ec4899",

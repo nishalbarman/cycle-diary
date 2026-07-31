@@ -1,20 +1,27 @@
-import { useCallback, useState } from "react";
-import { usePeriodStore } from "@/shared/store/periodStore";
+// src/shared/hooks/usePullToRefresh.ts
+// Migrated from Zustand usePeriodStore → Redux dispatch
+import { useState, useCallback } from 'react';
+import { useAppDispatch } from '@/store/hooks';
+import { rehydrateAfterSync } from '@/store/logSlice';
+import { hydrateSettings } from '@/store/settingsSlice';
 
 export function usePullToRefresh() {
+  const dispatch = useAppDispatch();
   const [refreshing, setRefreshing] = useState(false);
-  const hydrate = usePeriodStore((s) => s.hydrate);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await hydrate();
+      await Promise.all([
+        dispatch(rehydrateAfterSync()),
+        dispatch(hydrateSettings()),
+      ]);
     } catch {
-      // Errors are already surfaced via the store's `error` field.
+      // Errors are surfaced via Redux error state
     } finally {
       setRefreshing(false);
     }
-  }, [hydrate]);
+  }, [dispatch]);
 
   return { refreshing, onRefresh };
 }

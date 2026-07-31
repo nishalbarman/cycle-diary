@@ -1,11 +1,12 @@
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { Platform, View, StyleSheet } from "react-native";
 import { BannerAd, BannerAdSize } from "react-native-google-mobile-ads";
 
-import { useAdConfigStore } from "../store/adConfigStore";
-import { useAdActivityStore } from "../store/adActivityStore";
-import { useAdFreeStore } from "../store/adFreeStore";
-import { getAdRequestOptions, isNpa } from "../services/ads";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectAdEnabled } from "@/store/adConfigSlice";
+import { selectIsUserBlocked, trackFrequentAdClick, trackDailyAdClick } from "@/store/adActivitySlice";
+import { selectIsAdFree } from "@/store/adFreeSlice";
+import { getAdRequestOptions } from "../services/ads";
 import { isUserBlockedFromAds } from "../services/ads/fraud";
 
 interface AdBannerProps {
@@ -17,12 +18,14 @@ function AdBannerImpl({
   size = "ANCHORED_ADAPTIVE_BANNER",
   unitId,
 }: AdBannerProps) {
-  const isEnabled = useAdConfigStore((s) => s.isEnabled);
-  const bannerId = useAdConfigStore((s) => s.bannerId);
-  const isUserBlocked = useAdActivityStore((s) => s.isUserBlocked);
-  const isAdFree = useAdFreeStore((s) => s.isAdFree);
-  const trackFrequent = useAdActivityStore((s) => s.trackFrequentAdClick);
-  const trackDaily = useAdActivityStore((s) => s.trackDailyAdClick);
+  const dispatch = useAppDispatch();
+  const isEnabled = useAppSelector(selectAdEnabled);
+  const bannerId = useAppSelector((s) => s.adConfig.bannerId);
+  const isUserBlocked = useAppSelector(selectIsUserBlocked);
+  const isAdFree = useAppSelector(selectIsAdFree);
+
+  const trackFrequent = useCallback(() => dispatch(trackFrequentAdClick()), [dispatch]);
+  const trackDaily = useCallback(() => dispatch(trackDailyAdClick()), [dispatch]);
 
   const finalId = unitId ?? bannerId;
   const isDeviceBlocked = isUserBlockedFromAds();

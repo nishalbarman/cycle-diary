@@ -4,13 +4,14 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { useCheckAdFree } from "../hooks/ads/useCheckAdFree";
 import { useScreenRewardedAd } from "../hooks/ads/useScreenRewardedAd";
-import { useAdConfigStore } from "../store/adConfigStore";
+import { useAppSelector } from "@/store/hooks";
+import { selectAdEnabled } from "@/store/adConfigSlice";
 
 export function AdFreeUnlocker() {
-  const isEnabled = useAdConfigStore((s) => s.isEnabled);
-  const unlockHours = useAdConfigStore((s) => s.adFreeUnlockTime);
-  const { isAdFree, remainingLabel, startAdFree } = useCheckAdFree();
-  const { isLoaded, isOpened, isClosed, isEarnedReward, show, load, error } =
+  const isEnabled = useAppSelector(selectAdEnabled);
+  const unlockHours = useAppSelector((s) => s.adConfig.adFreeUnlockTime);
+  const { isAdFree, remainingLabel } = useCheckAdFree();
+  const { isLoaded, isOpened, isEarnedReward, show, load, error } =
     useScreenRewardedAd("ad_free_unlock");
   const [tapped, setTapped] = useState(false);
 

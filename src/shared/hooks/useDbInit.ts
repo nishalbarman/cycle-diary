@@ -1,13 +1,24 @@
-import { useEffect } from "react";
-import { usePeriodStore } from "@/shared/store/periodStore";
+// src/shared/hooks/useDbInit.ts
+// Migrated from Zustand usePeriodStore → Redux dispatch
+import { useEffect } from 'react';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { hydrateLogs, selectLogHydrated } from '@/store/logSlice';
+import { hydrateSettings, selectSettingsHydrated } from '@/store/settingsSlice';
 
 export function useDbInit() {
-  const hydrated = usePeriodStore((s) => s.hydrated);
-  const hydrate = usePeriodStore((s) => s.hydrate);
+  const dispatch = useAppDispatch();
+  const logsHydrated = useAppSelector(selectLogHydrated);
+  const settingsHydrated = useAppSelector(selectSettingsHydrated);
 
   useEffect(() => {
-    if (!hydrated) {
-      hydrate();
+    if (!logsHydrated) {
+      dispatch(hydrateLogs());
     }
-  }, [hydrated, hydrate]);
+  }, [logsHydrated, dispatch]);
+
+  useEffect(() => {
+    if (!settingsHydrated) {
+      dispatch(hydrateSettings());
+    }
+  }, [settingsHydrated, dispatch]);
 }

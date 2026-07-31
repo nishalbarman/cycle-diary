@@ -1,9 +1,9 @@
 import { PeriodLog, UserSettings } from "@/shared/types";
 
 export function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
+  const r = new Date(date);
+  r.setDate(r.getDate() + days);
+  return r;
 }
 
 export function daysBetween(a: Date, b: Date): number {
@@ -27,82 +27,20 @@ export function parseDate(str: string): Date {
 }
 
 export function getMonthDays(year: number, month: number): Date[] {
-  const first = new Date(year, month, 1);
   const last = new Date(year, month + 1, 0);
-  const days: Date[] = [];
-  for (let d = 1; d <= last.getDate(); d++) {
-    days.push(new Date(year, month, d));
-  }
-  return days;
+  return Array.from({ length: last.getDate() }, (_, i) => new Date(year, month, i + 1));
 }
 
 export function getWeekdayLabels(): string[] {
   return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 }
 
-export function getPhase(
-  cycleDay: number,
-  periodLength: number,
-  cycleLength: number,
-): string {
-  if (cycleDay <= 0) return "New Cycle";
-  if (cycleDay <= periodLength) return "Period";
-  if (cycleDay > cycleLength) return "Extended";
-  if (cycleDay <= cycleLength - 16) return "Follicular";
-  if (cycleDay >= cycleLength - 15 && cycleDay <= cycleLength - 13)
-    return "Ovulation";
-  return "Luteal";
+export function average(values: number[]): number {
+  if (values.length === 0) return 0;
+  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
 }
 
-export function predictNextPeriod(
-  logs: PeriodLog[],
-  settings: UserSettings,
-): { start: Date; end: Date } | null {
-  const stats = computeCycleLengthStats(logs);
-  const effectiveCycleLength = stats.average > 0 ? stats.average : settings.cycleLength;
-
-  const periodStarts = logs
-    .filter((l) => l.isPeriod)
-    .sort((a, b) => a.date.localeCompare(b.date));
-
-  if (periodStarts.length === 0 && !settings.lastPeriodStart) return null;
-
-  const lastStart = settings.lastPeriodStart
-    ? parseDate(settings.lastPeriodStart)
-    : parseDate(periodStarts[periodStarts.length - 1].date);
-
-  const predictedStart = addDays(lastStart, effectiveCycleLength);
-  const predictedEnd = addDays(predictedStart, settings.periodLength - 1);
-  return { start: predictedStart, end: predictedEnd };
-}
-
-export function isInRange(
-  date: Date,
-  start: Date,
-  end: Date,
-): boolean {
-  const t = date.getTime();
-  return t >= start.getTime() && t <= end.getTime();
-}
-
-export function getFertileWindow(
-  periodStart: Date,
-  cycleLength: number,
-): { start: Date; end: Date } {
-  const ovulationDay = cycleLength - 14;
-  const start = addDays(periodStart, ovulationDay - 5);
-  const end = addDays(periodStart, ovulationDay + 1);
-  return { start, end };
-}
-
-export function getFormattedDate(date: Date): string {
-  return date.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+// --- Period Groups ---
 
 export interface PeriodGroup {
   start: string;
@@ -123,32 +61,38 @@ export function buildPeriodGroups(logs: PeriodLog[]): PeriodGroup[] {
   let current: PeriodLog[] = [sorted[0]];
 
   for (let i = 1; i < sorted.length; i++) {
-    const diff = daysBetween(
-      parseDate(sorted[i - 1].date),
-      parseDate(sorted[i].date),
-    );
+    const diff = daysBetween(parseDate(sorted[i - 1].date), parseDate(sorted[i].date));
     if (Math.abs(diff) > 1) {
-      groups.push({
-        start: current[0].date,
-        end: current[current.length - 1].date,
-        periodLength: current.length,
-        logs: current,
-      });
+      groups.push({ start: current[0].date, end: current[current.length - 1].date, periodLength: current.length, logs: current });
       current = [sorted[i]];
     } else {
       current.push(sorted[i]);
     }
   }
-  if (current.length > 0) {
-    groups.push({
-      start: current[0].date,
-      end: current[current.length - 1].date,
-      periodLength: current.length,
-      logs: current,
-    });
-  }
+  groups.push({ start: current[0].date, end: current[current.length - 1].date, periodLength: current.length, logs: current });
+
   return groups;
 }
+
+export function isNewPeriodGroup(logDate: string, existingLogs: PeriodLog[]): boolean {
+  const periodDates = existingLogs.filter((l) => l.isPeriod).map((l) => l.date);
+  if (periodDates.length === 0) return true;
+  const parsed = parseDate(logDate);
+  return !periodDates.includes(formatDate(addDays(parsed, -1))) && !periodDates.includes(formatDate(addDays(parsed, 1)));
+}
+
+// --- Cycle Length ---
+
+export function computeCycleLengthStats(logs: PeriodLog[]): { average: number; count: number; observed: number[] } {
+  const groups = buildPeriodGroups(logs);
+  const observed: number[] = [];
+  for (let i = 1; i < groups.length; i++) {
+    observed.push(daysBetween(parseDate(groups[i - 1].start), parseDate(groups[i].start)));
+  }
+  return { average: observed.length > 0 ? average(observed) : 0, count: observed.length, observed };
+}
+
+// --- Completed Cycles ---
 
 export interface CompletedCycle {
   startDate: string;
@@ -163,63 +107,66 @@ export function getCompletedCycles(logs: PeriodLog[]): CompletedCycle[] {
   for (let i = 1; i < groups.length; i++) {
     const prev = groups[i - 1];
     const curr = groups[i];
-    const length = daysBetween(parseDate(prev.start), parseDate(curr.start));
     cycles.push({
       startDate: prev.start,
       endDate: formatDate(addDays(parseDate(curr.start), -1)),
-      length,
+      length: daysBetween(parseDate(prev.start), parseDate(curr.start)),
       periodLength: prev.periodLength,
     });
   }
   return cycles;
 }
 
-export function computeCycleLengthStats(
-  logs: PeriodLog[],
-): { average: number; count: number; observed: number[] } {
-  const groups = buildPeriodGroups(logs);
-  const observed: number[] = [];
-  for (let i = 1; i < groups.length; i++) {
-    const len = daysBetween(parseDate(groups[i - 1].start), parseDate(groups[i].start));
-    observed.push(len);
-  }
-  return {
-    average: observed.length > 0 ? average(observed) : 0,
-    count: observed.length,
-    observed,
-  };
+// --- Phase ---
+
+export function getPhase(cycleDay: number, periodLength: number, cycleLength: number): string {
+  if (cycleDay <= 0) return "New Cycle";
+  if (cycleDay <= periodLength) return "Period";
+  if (cycleDay > cycleLength) return "Extended";
+  if (cycleDay <= cycleLength - 16) return "Follicular";
+  if (cycleDay >= cycleLength - 15 && cycleDay <= cycleLength - 13) return "Ovulation";
+  return "Luteal";
 }
 
-export function isNewPeriodGroup(
-  logDate: string,
-  existingLogs: PeriodLog[],
-): boolean {
-  const periodDates = existingLogs
-    .filter((l) => l.isPeriod)
-    .map((l) => l.date)
-    .sort();
-  if (periodDates.length === 0) return true;
-  const parsed = parseDate(logDate);
-  const dayBefore = formatDate(addDays(parsed, -1));
-  const dayAfter = formatDate(addDays(parsed, 1));
-  return !periodDates.includes(dayBefore) && !periodDates.includes(dayAfter);
+// --- Prediction ---
+
+export function predictNextPeriod(logs: PeriodLog[], settings: UserSettings): { start: Date; end: Date } | null {
+  const stats = computeCycleLengthStats(logs);
+  const effectiveCycleLength = stats.average > 0 ? stats.average : settings.cycleLength;
+
+  const periodStarts = logs.filter((l) => l.isPeriod).sort((a, b) => a.date.localeCompare(b.date));
+  if (periodStarts.length === 0 && !settings.lastPeriodStart) return null;
+
+  const lastStart = settings.lastPeriodStart ? parseDate(settings.lastPeriodStart) : parseDate(periodStarts[periodStarts.length - 1].date);
+
+  const predictedStart = addDays(lastStart, effectiveCycleLength);
+  return { start: predictedStart, end: addDays(predictedStart, settings.periodLength - 1) };
 }
 
-export function getSymptomFrequency(
-  logs: PeriodLog[],
-): { symptom: string; count: number }[] {
+// --- Fertile Window ---
+
+export function getFertileWindow(periodStart: Date, cycleLength: number): { start: Date; end: Date } {
+  const ovulationDay = cycleLength - 14;
+  return { start: addDays(periodStart, ovulationDay - 5), end: addDays(periodStart, ovulationDay + 1) };
+}
+
+// --- Helpers ---
+
+export function getFormattedDate(date: Date): string {
+  return date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+}
+
+export function isInRange(date: Date, start: Date, end: Date): boolean {
+  const t = date.getTime();
+  return t >= start.getTime() && t <= end.getTime();
+}
+
+export function getSymptomFrequency(logs: PeriodLog[]): { symptom: string; count: number }[] {
   const map = new Map<string, number>();
   for (const l of logs) {
     for (const s of l.symptoms) {
       map.set(s, (map.get(s) ?? 0) + 1);
     }
   }
-  return Array.from(map.entries())
-    .map(([symptom, count]) => ({ symptom, count }))
-    .sort((a, b) => b.count - a.count);
-}
-
-export function average(values: number[]): number {
-  if (values.length === 0) return 0;
-  return Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+  return Array.from(map.entries()).map(([symptom, count]) => ({ symptom, count })).sort((a, b) => b.count - a.count);
 }
