@@ -15,7 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import { selectSettings, updateSettings } from "@/store/settingsSlice";
-import { selectLogs, resetAll, addLog } from "@/store/logSlice";
+import { selectLogs, resetAll } from "@/store/logSlice";
 import { selectUser, signOut } from "@/store/authSlice";
 import { selectAdEnabled } from "@/store/adConfigSlice";
 import { selectIsUserBlocked } from "@/store/adActivitySlice";
@@ -93,6 +93,96 @@ function Stepper({ label, value, onChange, min, max, suffix, hint, icon }: Stepp
             }}
           />
         </View>
+        <Pressable
+          onPress={() => onChange(Math.min(max, value + 1))}
+          disabled={value >= max}
+          className={`w-9 h-9 rounded-xl items-center justify-center ${value >= max ? "opacity-40" : "active:opacity-80"}`}
+          style={{ backgroundColor: theme.primary }}>
+          <Ionicons name="add" size={18} color="#ffffff" />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+interface SliderRowProps {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  min: number;
+  max: number;
+  suffix?: string;
+  hint?: string;
+  icon: keyof typeof Ionicons.glyphMap;
+}
+
+function SliderRow({ label, value, onChange, min, max, suffix, hint, icon }: SliderRowProps) {
+  const [trackWidth, setTrackWidth] = useState(0);
+  const THUMB_SIZE = 22;
+
+  const pct = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
+
+  return (
+    <View className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-3">
+      <View className="flex-row items-center justify-between mb-2">
+        <View className="flex-row items-center flex-1 mr-2">
+          <View className="w-8 h-8 rounded-xl bg-gray-50 items-center justify-center mr-3">
+            <Ionicons name={icon} size={18} color={theme.primary} />
+          </View>
+          <View className="flex-1">
+            <Text className="font-lexend-semibold text-gray-900 text-sm">{label}</Text>
+            {hint && <Text className="text-[11px] font-lexend text-gray-400 mt-0.5">{hint}</Text>}
+          </View>
+        </View>
+        <View className="px-3 py-1 rounded-xl" style={{ backgroundColor: theme.primaryLight }}>
+          <Text className="font-lexend-bold text-sm" style={{ color: theme.primary }}>
+            {value}{suffix ? ` ${suffix}` : ""}
+          </Text>
+        </View>
+      </View>
+
+      <View className="flex-row items-center gap-3 mt-2">
+        <Pressable
+          onPress={() => onChange(Math.max(min, value - 1))}
+          disabled={value <= min}
+          className={`w-9 h-9 bg-gray-100 rounded-xl items-center justify-center ${value <= min ? "opacity-40" : "active:bg-gray-200"}`}>
+          <Ionicons name="remove" size={18} color="#374151" />
+        </Pressable>
+
+        <View className="flex-1 px-1">
+          <View className="flex-row justify-between mb-1">
+            <Text className="font-lexend text-[10px] text-gray-400">{min}</Text>
+            <Text className="font-lexend text-[10px] text-gray-400">{max}</Text>
+          </View>
+          <View
+            className="h-6 justify-center"
+            onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
+          >
+            <View className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <View
+                className="h-full rounded-full"
+                style={{ backgroundColor: theme.primary, width: `${pct}%` }}
+              />
+            </View>
+            <View
+              pointerEvents="none"
+              className="absolute rounded-full bg-white border-2"
+              style={{
+                width: THUMB_SIZE,
+                height: THUMB_SIZE,
+                borderColor: theme.primary,
+                left: trackWidth ? (pct / 100) * trackWidth - THUMB_SIZE / 2 : 0,
+                top: (24 - THUMB_SIZE) / 2,
+                shadowColor: "#000",
+                shadowOpacity: 0.15,
+                shadowRadius: 2,
+                shadowOffset: { width: 0, height: 1 },
+                elevation: 2,
+              }}
+            />
+          </View>
+        </View>
+
         <Pressable
           onPress={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
@@ -235,45 +325,25 @@ export default function SettingsScreen() {
 
   return (
     <View className="flex-1 bg-gray-50">
-      {<View className="flex-row items-center justify-between" style={{ backgroundColor: theme.primary, paddingTop: insets.top + 16, paddingBottom: 16, paddingHorizontal: 16 }}>
-  <View className="flex-row items-center">
-    <View className="mr-4" style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: theme.primaryLight, alignItems: "center", justifyContent: "center" }}>
-      <Text className="font-lexend-bold text-xl" style={{ color: theme.primary }}>
-        {user?.displayName ? user.displayName.split(' ')[0][0].toUpperCase() : "U"}
-      </Text>
-    </View>
-    <View>
-      <Text className="text-white text-2xl font-lexend-bold">
-        {user?.displayName || "User"}
-      </Text>
-      <Text className="text-white text-sm opacity-80">
-        {user?.email || "Local Account"}
-      </Text>
-    </View>
-  </View>
-  <Pressable onPress={() => {
-    // Placeholder for edit profile action
-    console.log("Edit profile pressed");
-  }} className="flex-row items-center">
-    <Ionicons name="create-outline" size={20} color="#fff" />
-    <Text className="ml-1 text-white font-lexend-medium">Edit</Text>
-  </Pressable>
-</View>}
+      {/* Top Bar Header */}
+      {/* <View
+        className="px-6 pb-5 flex-row items-center border-b border-gray-100 bg-white"
+        style={{ paddingTop: insets.top + 12 }}>
+        <Pressable
+          onPress={() => router.back()}
+          className="w-10 h-10 bg-gray-100 rounded-full items-center justify-center mr-4 active:bg-gray-200">
+          <Ionicons name="arrow-back" size={20} color="#1f2937" />
+        </Pressable>
+        <View className="flex-1">
+          <Text className="text-gray-900 text-xl font-lexend-bold">Settings & Profile</Text>
+          <Text className="text-xs font-lexend text-gray-400 mt-0.5">Account, preferences & data management</Text>
+        </View>
+      </View> */}
 
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 50 }}
         showsVerticalScrollIndicator={false}>
-
-        <View className="px-6 pb-8" style={{ backgroundColor: theme.primary, paddingTop: insets.top + 16 }}>
-          <View className="flex-row items-center justify-between">
-            <Text className="text-white text-2xl font-lexend-bold">History</Text>
-            <Pressable onPress={() => router.push("/log")} className="bg-white/20 rounded-full px-4 py-2 flex-row items-center">
-              <Ionicons name="add" size={18} color="white" />
-              <Text className="text-white font-lexend-semibold ml-1">Log</Text>
-            </Pressable>
-          </View>
-        </View>
 
         {/* SECTION 0: PROFILE ACCOUNT */}
         {/* <SectionHeader title="Account & Overview" subtitle="Logged-in profile & quick summary" /> */}
@@ -320,7 +390,7 @@ export default function SettingsScreen() {
         {/* SECTION 1: CYCLE CONFIGURATION */}
         <SectionHeader icon="calendar" title="Cycle Setup" subtitle="Cycle & period duration preferences" />
 
-        <Stepper
+        <SliderRow
           label="Cycle Length"
           value={settings.cycleLength}
           onChange={(n) => dispatch(updateSettings({ cycleLength: n }))}
@@ -330,7 +400,7 @@ export default function SettingsScreen() {
           hint="Average days between periods"
           icon="repeat"
         />
-        <Stepper
+        <SliderRow
           label="Period Length"
           value={settings.periodLength}
           onChange={(n) => dispatch(updateSettings({ periodLength: n }))}
@@ -366,18 +436,11 @@ export default function SettingsScreen() {
             value={lastPeriodDate}
             mode="date"
             maximumDate={new Date()}
-            onChange={async (_, d) => {
+            onChange={(_, d) => {
               setShowDatePicker(false);
+              console.log("What is d", d)
               if (d) {
-                const dateStr = formatDate(d);
-                await dispatch(updateSettings({ lastPeriodStart: dateStr }));
-                await dispatch(addLog({
-                  id: `${dateStr}-${Date.now()}`,
-                  date: dateStr,
-                  isPeriod: true,
-                  flow: "medium",
-                  symptoms: [],
-                }));
+                dispatch(updateSettings({ lastPeriodStart: formatDate(d) }));
               }
             }}
           />

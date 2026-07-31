@@ -6,8 +6,9 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import CustomButton from "@/shared/components/CustomButton";
 import { useActionInterstitialAd } from "@/shared/hooks/ads/useActionInterstitialAd";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { addLog, selectLogs } from "@/store/logSlice";
+import { useAppSelector } from "@/store/hooks";
+import { selectLogs } from "@/store/logSlice";
+import { useAddLogMutation } from "@/store/apiSlice";
 import { FlowLevel, MoodType, SymptomType } from "@/shared/types";
 import { formatDate } from "@/shared/utils/cycle";
 import theme from "@/shared/theme";
@@ -45,8 +46,8 @@ const MOODS: { label: string; value: MoodType; emoji: string; color: string; bg:
 export default function LogPeriodScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const dispatch = useAppDispatch();
   const logs = useAppSelector(selectLogs);
+  const [addLogMutation] = useAddLogMutation();
   const actionAd = useActionInterstitialAd();
 
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -90,7 +91,7 @@ export default function LogPeriodScreen() {
     setSaving(true);
     try {
       const dateStr = formatDate(selectedDate);
-      const result = await dispatch(addLog({
+      await addLogMutation({
         id: existingLog?.id ?? `${dateStr}-${Date.now()}`,
         date: dateStr,
         flow: isPeriod ? flow : undefined,
@@ -99,10 +100,7 @@ export default function LogPeriodScreen() {
         notes: notes.trim() || undefined,
         isPeriod,
         water,
-      }));
-      if (addLog.rejected.match(result)) {
-        throw new Error(result.payload as string);
-      }
+      }).unwrap();
       actionAd.trackAction();
       setSaving(false);
       router.back();

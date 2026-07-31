@@ -29,7 +29,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "expo-secure-store",
     "expo-font",
     "expo-status-bar",
-    "expo-sqlite",
     "expo-file-system",
     "expo-sharing",
     [

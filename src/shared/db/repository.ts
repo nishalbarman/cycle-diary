@@ -1,175 +1,189 @@
-import { eq, desc } from "drizzle-orm";
-import { getDb, initDb } from "./client";
-import { periodLogs, userSettings } from "./schema";
-import type {
-  PeriodLog,
-  UserSettings,
-  FlowLevel,
-  MoodType,
-  SymptomType,
-  CrampEntry,
-  CravingEntry,
-  SleepEntry,
-} from "@/shared/types";
-import type { PeriodLogRow, UserSettingsRow } from "./schema";
+import { database } from "./wm/database";
+import { PeriodLogModel, UserSettingsModel } from "./wm/models";
+import type { PeriodLog, UserSettings } from "@/shared/types";
 
 const SETTINGS_ROW_ID = "singleton";
 
-export async function ensureReady(): Promise<void> {
-  await initDb();
-}
+export async function ensureReady(): Promise<void> {}
 
 function toOptional<T>(val: T | null | undefined): T | undefined {
   if (val === null || val === undefined) return undefined;
   return val;
 }
 
-function rowToLog(row: PeriodLogRow): PeriodLog {
+function modelToLog(model: PeriodLogModel): PeriodLog {
   return {
-    id: row.id,
-    date: row.date,
-    flow: toOptional(row.flow as FlowLevel),
-    symptoms: (row.symptoms as SymptomType[]) ?? [],
-    mood: toOptional(row.mood as MoodType),
-    notes: toOptional(row.notes),
-    isPeriod: row.isPeriod,
-    cramps: toOptional(row.cramps as CrampEntry),
-    cravings: toOptional(row.cravings as CravingEntry),
-    sleep: toOptional(row.sleep as SleepEntry),
-    water: row.water ?? 0,
+    id: model.id,
+    date: model.date,
+    flow: toOptional(model.flow),
+    symptoms: Array.isArray(model.symptoms) ? model.symptoms : [],
+    mood: toOptional(model.mood),
+    notes: toOptional(model.notes),
+    isPeriod: !!model.isPeriod,
+    cramps: toOptional(model.cramps),
+    cravings: toOptional(model.cravings),
+    sleep: toOptional(model.sleep),
+    water: model.water ?? 0,
   };
 }
 
-function rowToSettings(row: UserSettingsRow): UserSettings {
+function modelToSettings(model: UserSettingsModel): UserSettings {
   return {
-    cycleLength: row.cycleLength,
-    periodLength: row.periodLength,
-    lastPeriodStart: row.lastPeriodStart ?? null,
-    primaryGoal: (row.primaryGoal as any) ?? "track_period",
-    notificationsEnabled: row.notificationsEnabled,
-    notifyBeforeDays: row.notifyBeforeDays,
-    notifyTime: row.notifyTime,
-    ovulationReminderEnabled: row.ovulationReminderEnabled ?? true,
-    pillReminderEnabled: row.pillReminderEnabled ?? false,
-    pillNotifyTime: row.pillNotifyTime ?? "20:00",
-    symptomTracking: row.symptomTracking,
-    flowTracking: row.flowTracking,
-    onboardingComplete: row.onboardingComplete,
-    hasSeenStorageNotice: row.hasSeenStorageNotice,
+    cycleLength: model.cycleLength,
+    periodLength: model.periodLength,
+    lastPeriodStart: model.lastPeriodStart ?? null,
+    primaryGoal: (model.primaryGoal as any) ?? "track_period",
+    notificationsEnabled: model.notificationsEnabled,
+    notifyBeforeDays: model.notifyBeforeDays,
+    notifyTime: model.notifyTime,
+    ovulationReminderEnabled: model.ovulationReminderEnabled ?? true,
+    pillReminderEnabled: model.pillReminderEnabled ?? false,
+    pillNotifyTime: model.pillNotifyTime ?? "20:00",
+    symptomTracking: model.symptomTracking,
+    flowTracking: model.flowTracking,
+    onboardingComplete: model.onboardingComplete,
+    hasSeenStorageNotice: model.hasSeenStorageNotice,
   };
+}
+
+function applyLogUpdate(record: PeriodLogModel, log: Partial<PeriodLog>): void {
+  record.date = log.date ?? record.date;
+  record.flow = log.flow ?? null;
+  record.symptoms = log.symptoms ?? [];
+  record.mood = log.mood ?? null;
+  record.notes = log.notes ?? null;
+  record.isPeriod = log.isPeriod ?? false;
+  record.cramps = log.cramps ?? null;
+  record.cravings = log.cravings ?? null;
+  record.sleep = log.sleep ?? null;
+  record.water = log.water ?? 0;
+}
+
+function applySettingsUpdate(
+  record: UserSettingsModel,
+  settings: UserSettings,
+): void {
+  record.cycleLength = settings.cycleLength ?? 28;
+  record.periodLength = settings.periodLength ?? 5;
+  record.lastPeriodStart = settings.lastPeriodStart ?? null;
+  record.primaryGoal = settings.primaryGoal ?? "track_period";
+  record.notificationsEnabled = settings.notificationsEnabled ?? false;
+  record.notifyBeforeDays = settings.notifyBeforeDays ?? 2;
+  record.notifyTime = settings.notifyTime ?? "09:00";
+  record.ovulationReminderEnabled = settings.ovulationReminderEnabled ?? true;
+  record.pillReminderEnabled = settings.pillReminderEnabled ?? false;
+  record.pillNotifyTime = settings.pillNotifyTime ?? "20:00";
+  record.symptomTracking = settings.symptomTracking ?? true;
+  record.flowTracking = settings.flowTracking ?? true;
+  record.onboardingComplete = settings.onboardingComplete ?? false;
+  record.hasSeenStorageNotice = settings.hasSeenStorageNotice ?? false;
 }
 
 export async function fetchAllLogs(): Promise<PeriodLog[]> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(periodLogs)
-    .orderBy(desc(periodLogs.date));
-  return rows.map(rowToLog);
+  const logs = await database.collections
+    .get<PeriodLogModel>("period_logs")
+    .query()
+    .fetch();
+  return logs.sort((a, b) => (a.date < b.date ? 1 : -1)).map(modelToLog);
 }
 
 export async function insertLog(log: PeriodLog): Promise<void> {
-  const db = getDb();
-  const now = Date.now();
-  const id = log.id || (crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  const values = {
-    id,
-    date: log.date,
-    flow: log.flow ?? null,
-    symptoms: log.symptoms ?? [],
-    mood: log.mood ?? null,
-    notes: log.notes ?? null,
-    isPeriod: log.isPeriod ?? false,
-    cramps: log.cramps ?? null,
-    cravings: log.cravings ?? null,
-    sleep: log.sleep ?? null,
-    water: log.water ?? 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-  const { id: _id, ...updateSet } = values;
-  await db
-    .insert(periodLogs)
-    .values(values)
-    .onConflictDoUpdate({
-      target: periodLogs.id,
-      set: updateSet,
-    });
+  const id =
+    log.id ??
+    (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const collection = database.collections.get<PeriodLogModel>("period_logs");
+  await database.write(async () => {
+    const existing = await collection.find(id).catch(() => null);
+    if (existing) {
+      await existing.update((record) => applyLogUpdate(record, log));
+    } else {
+      await collection.create((record) => {
+        record._raw.id = id;
+        applyLogUpdate(record, log);
+      });
+    }
+  });
 }
 
 export async function updateLogDb(
   id: string,
   updates: Partial<PeriodLog>,
 ): Promise<void> {
-  const db = getDb();
-  const patch: Record<string, unknown> = { updatedAt: Date.now() };
-  if (updates.date !== undefined) patch.date = updates.date;
-  if (updates.flow !== undefined) patch.flow = updates.flow ?? null;
-  if (updates.symptoms !== undefined) patch.symptoms = updates.symptoms;
-  if (updates.mood !== undefined) patch.mood = updates.mood ?? null;
-  if (updates.notes !== undefined) patch.notes = updates.notes ?? null;
-  if (updates.isPeriod !== undefined) patch.isPeriod = updates.isPeriod ?? false;
-  if (updates.cramps !== undefined) patch.cramps = updates.cramps ?? null;
-  if (updates.cravings !== undefined) patch.cravings = updates.cravings ?? null;
-  if (updates.sleep !== undefined) patch.sleep = updates.sleep ?? null;
-  if (updates.water !== undefined) patch.water = updates.water ?? 0;
-  await db.update(periodLogs).set(patch).where(eq(periodLogs.id, id));
+  const collection = database.collections.get<PeriodLogModel>("period_logs");
+  await database.write(async () => {
+    const record = await collection.find(id).catch(() => null);
+    if (!record) return;
+    await record.update((r) => {
+      if (updates.date !== undefined) r.date = updates.date;
+      if (updates.flow !== undefined) r.flow = updates.flow ?? null;
+      if (updates.symptoms !== undefined) r.symptoms = updates.symptoms;
+      if (updates.mood !== undefined) r.mood = updates.mood ?? null;
+      if (updates.notes !== undefined) r.notes = updates.notes ?? null;
+      if (updates.isPeriod !== undefined) r.isPeriod = updates.isPeriod ?? false;
+      if (updates.cramps !== undefined) r.cramps = updates.cramps ?? null;
+      if (updates.cravings !== undefined) r.cravings = updates.cravings ?? null;
+      if (updates.sleep !== undefined) r.sleep = updates.sleep ?? null;
+      if (updates.water !== undefined) r.water = updates.water ?? 0;
+    });
+  });
 }
 
 export async function deleteLogDb(id: string): Promise<void> {
-  const db = getDb();
-  await db.delete(periodLogs).where(eq(periodLogs.id, id));
+  const collection = database.collections.get<PeriodLogModel>("period_logs");
+  await database.write(async () => {
+    const record = await collection.find(id).catch(() => null);
+    if (record) await record.destroyPermanently();
+  });
 }
 
 export async function deleteAllLogs(): Promise<void> {
-  const db = getDb();
-  await db.delete(periodLogs);
+  await database.write(async () => {
+    const logs = await database.collections
+      .get<PeriodLogModel>("period_logs")
+      .query()
+      .fetch();
+    for (const log of logs) {
+      await log.destroyPermanently();
+    }
+  });
 }
 
 export async function fetchSettings(): Promise<UserSettings | null> {
-  const db = getDb();
-  const rows = await db
-    .select()
-    .from(userSettings)
-    .where(eq(userSettings.id, SETTINGS_ROW_ID))
-    .limit(1);
-  if (rows.length === 0) return null;
-  return rowToSettings(rows[0]);
+  const collection = database.collections.get<UserSettingsModel>("user_settings");
+  const record = await collection.find(SETTINGS_ROW_ID).catch(() => null);
+  return record ? modelToSettings(record) : null;
 }
 
 export async function upsertSettings(settings: UserSettings): Promise<void> {
-  const db = getDb();
-  const now = Date.now();
-  const data = {
-    id: SETTINGS_ROW_ID,
-    cycleLength: settings.cycleLength ?? 28,
-    periodLength: settings.periodLength ?? 5,
-    lastPeriodStart: settings.lastPeriodStart ?? null,
-    primaryGoal: settings.primaryGoal ?? "track_period",
-    notificationsEnabled: settings.notificationsEnabled ?? false,
-    notifyBeforeDays: settings.notifyBeforeDays ?? 2,
-    notifyTime: settings.notifyTime ?? "09:00",
-    ovulationReminderEnabled: settings.ovulationReminderEnabled ?? true,
-    pillReminderEnabled: settings.pillReminderEnabled ?? false,
-    pillNotifyTime: settings.pillNotifyTime ?? "20:00",
-    symptomTracking: settings.symptomTracking ?? true,
-    flowTracking: settings.flowTracking ?? true,
-    onboardingComplete: settings.onboardingComplete ?? false,
-    hasSeenStorageNotice: settings.hasSeenStorageNotice ?? false,
-    updatedAt: now,
-  };
-  const { id: _id, ...updateData } = data;
-  await db
-    .insert(userSettings)
-    .values(data)
-    .onConflictDoUpdate({
-      target: userSettings.id,
-      set: updateData,
-    });
+  const collection = database.collections.get<UserSettingsModel>("user_settings");
+  await database.write(async () => {
+    const existing = await collection.find(SETTINGS_ROW_ID).catch(() => null);
+    if (existing) {
+      await existing.update((record) => applySettingsUpdate(record, settings));
+    } else {
+      await collection.create((record) => {
+        record._raw.id = SETTINGS_ROW_ID;
+        applySettingsUpdate(record, settings);
+      });
+    }
+  });
 }
 
 export async function resetAllData(): Promise<void> {
-  const db = getDb();
-  await db.delete(periodLogs);
-  await db.delete(userSettings);
+  await database.write(async () => {
+    const logs = await database.collections
+      .get<PeriodLogModel>("period_logs")
+      .query()
+      .fetch();
+    for (const log of logs) {
+      await log.destroyPermanently();
+    }
+    const settings = await database.collections
+      .get<UserSettingsModel>("user_settings")
+      .query()
+      .fetch();
+    for (const record of settings) {
+      await record.destroyPermanently();
+    }
+  });
 }

@@ -24,6 +24,8 @@ import adActivityReducer from './adActivitySlice';
 import adFreeReducer from './adFreeSlice';
 import appConfigReducer from './appConfigSlice';
 
+import { apiSlice } from './apiSlice';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Persist configs
 // Period logs and settings are stored in SQLite — no AsyncStorage persist needed.
@@ -57,6 +59,9 @@ const adFreePersistConfig = {
 // Root reducer
 // ─────────────────────────────────────────────────────────────────────────────
 const rootReducer = combineReducers({
+  // RTK Query API Slice
+  [apiSlice.reducerPath]: apiSlice.reducer,
+
   // Auth — persisted (user object)
   auth: persistReducer(authPersistConfig, authReducer),
 
@@ -86,7 +91,7 @@ export const store = configureStore({
         // Ignore redux-persist actions
         ignoredActions: [FLUSH, REHYDRATE, PAUSE, PERSIST, PURGE, REGISTER],
       },
-    }),
+    }).concat(apiSlice.middleware),
   devTools: process.env.NODE_ENV !== 'production',
 });
 

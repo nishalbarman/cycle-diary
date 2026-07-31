@@ -7,7 +7,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useAppSelector, useAppDispatch } from "@/store/hooks";
-import { selectLogs, addLog } from "@/store/logSlice";
+import { selectLogs } from "@/store/logSlice";
 import { selectSettings, updateSettings } from "@/store/settingsSlice";
 import { selectUser } from "@/store/authSlice";
 import { selectAdEnabled } from "@/store/adConfigSlice";
@@ -108,18 +108,10 @@ export default function CalendarScreen() {
             value={settings.lastPeriodStart ? parseDate(settings.lastPeriodStart) : new Date()}
             mode="date"
             maximumDate={new Date()}
-            onChange={async (_, d) => {
+            onChange={(_, d) => {
               setShowDatePicker(false);
               if (d) {
-                const dateStr = formatDate(d);
-                await dispatch(updateSettings({ lastPeriodStart: dateStr }));
-                await dispatch(addLog({
-                  id: `${dateStr}-${Date.now()}`,
-                  date: dateStr,
-                  isPeriod: true,
-                  flow: "medium",
-                  symptoms: [],
-                }));
+                dispatch(updateSettings({ lastPeriodStart: formatDate(d) }));
               }
             }}
           />

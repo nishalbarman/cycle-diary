@@ -12,6 +12,7 @@
     "@expo-google-fonts/inter": "^0.4.2",
     "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.6",
+    "@nozbe/watermelondb": "^0.28.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "^9.1.0",
     "@react-native-firebase/app": "^24.0.0",
@@ -24,9 +25,8 @@
     "@react-navigation/native-stack": "^6.9.12",
     "@reduxjs/toolkit": "^2.2.6",
     "dayjs": "^1.11.10",
-    "drizzle-orm": "^0.45.2",
     "expo": "~56.0.16",
-    "expo-application": "~56.0.7",
+    "expo-application": "~56.0.3",
     "expo-build-properties": "~56.0.23",
     "expo-calendar": "~56.0.9",
     "expo-constants": "~56.0.21",
@@ -40,14 +40,12 @@
     "expo-secure-store": "~56.0.4",
     "expo-sharing": "~56.0.22",
     "expo-splash-screen": "~56.0.13",
-    "expo-sqlite": "~56.0.5",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",
     "nativewind": "~4.1.23",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.85.3",
-    "react-native-calendars": "^2.2.4",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-google-mobile-ads": "^16.3.3",
     "react-native-reanimated": "4.3.1",
@@ -63,10 +61,12 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@babel/plugin-proposal-decorators": "^7.29.0",
+    "@babel/plugin-transform-class-properties": "^7.29.0",
     "@types/react": "~19.2.10",
     "typescript": "~6.0.3"
   },
-  "overrides": {
+  "resolutions": {
     "react-native-css-interop": "0.1.21"
   },
   "private": true
