@@ -73,12 +73,21 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         },
       },
     ],
+    [
+        "./plugins/withAndroidSigning",
+        {
+          storeFile: "../../android.keystore",
+          storePassword: process.env.KEYSTORE_PASSWORD,
+          keyAlias: process.env.KEYSTORE_ALIAS,
+          keyPassword: process.env.KEYSTORE_PASSWORD,
+        },
+      ],
   ],
   android: {
     softwareKeyboardLayoutMode: "pan",
     package: PACKAGE_NAME,
     version: process.env.VERSION_NAME,
-    versionCode: process.env.VERSION_CODE,
+    versionCode: parseInt(process.env.VERSION_CODE),
     adaptiveIcon: {
       foregroundImage: "./src/assets/icons/adaptive-foreground.png",
       backgroundColor: "#ec4899",

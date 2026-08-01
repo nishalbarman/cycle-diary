@@ -25,3 +25,4 @@ yarn-error.log
 !firestore.rules
 
 android/
+android.keystore
