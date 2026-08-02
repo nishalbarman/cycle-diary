@@ -26,3 +26,5 @@ yarn-error.log
 
 android/
 android.keystore
+google-services.json
+google-service.json
